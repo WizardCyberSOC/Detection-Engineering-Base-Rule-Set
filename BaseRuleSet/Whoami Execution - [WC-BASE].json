@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/f587ff20-c931-42e7-97ac-50c7e601226a\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/f587ff20-c931-42e7-97ac-50c7e601226a\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Whoami Execution - [WC-BASE]",
+                                             "description":  "Detects the execution of whoami, which is often used by attackers after exloitation / privilege escalation but rarely used by administrators",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let var1 = view() {\n    SysmonEvent \n    | where (EventID == 1 and CommandLine =~ \u0027whoami\u0027)\n};\nlet var2 = view() {\n    SecurityEvent \n    | where (EventID == 4688 and NewProcessName endswith @\u0027\\whoami.exe\u0027)\n    | where AccountType != \"Machine\"\n};\nunion isfuzzy=true var1, var2\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "PrivilegeEscalation"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "Computer"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

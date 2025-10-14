@@ -1,0 +1,100 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/006bcdb6-d3db-4442-b295-3c0e7693d99a\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/006bcdb6-d3db-4442-b295-3c0e7693d99a\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Detect Suspicious Commands Initiated by Webserver Processes - [WC-BASE-W]",
+                                             "description":  "This query detects suspicious commands initiated by web server processes, focusing on potentially malicious activities like system reconnaissance and network exploration. It identifies key indicators using command-line tools like cmd.exe or powershell.exe from web server-related processes.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "// Suspicious commands launched by web server processes\r\nDeviceProcessEvents \r\n| where (((InitiatingProcessParentFileName in(\"w3wp.exe\", \"beasvc.exe\",\r\n    \"httpd.exe\") or InitiatingProcessParentFileName startswith \"tomcat\")\r\n    or InitiatingProcessFileName in(\"w3wp.exe\", \"beasvc.exe\", \"httpd.exe\") or\r\n    InitiatingProcessFileName startswith \"tomcat\"))\r\n    and FileName in~(\u0027cmd.exe\u0027, \u0027powershell.exe\u0027)\r\n| where ProcessCommandLine contains \u0027%temp%\u0027\r\n    or ProcessCommandLine has \u0027wget\u0027\r\n    or ProcessCommandLine has \u0027whoami\u0027\r\n    or ProcessCommandLine has \u0027certutil\u0027\r\n    or ProcessCommandLine has \u0027systeminfo\u0027\r\n    or ProcessCommandLine has \u0027ping\u0027\r\n    or ProcessCommandLine has \u0027ipconfig\u0027\r\n    or ProcessCommandLine has \u0027timeout\u0027\r\n| extend HostName = iff(DeviceName has \u0027.\u0027, substring(DeviceName, 0, indexof(DeviceName, \u0027.\u0027)), DeviceName)\r\n| extend DnsDomain = iff(DeviceName has \u0027.\u0027, substring(DeviceName, indexof(DeviceName, \u0027.\u0027) + 1), \"\")\r\n// WHITELIST START\r\n| extend RuleName = \u0027Detect Suspicious Commands Initiated by Webserver Processes\u0027\r\n| join kind=leftouter (_GetWatchlist(\u0027WizardCyberAnalyticalRulesTuning\u0027)\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017918\" and isnotempty(Tuning01)) and ProcessCommandLine contains Tuning01.[0]  )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion",
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1574",
+                                                                "T1505"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "HostName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "DNS",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "DomainName",
+                                                                                                  "columnName":  "DnsDomain"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Process",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "CommandLine",
+                                                                                                  "columnName":  "ProcessCommandLine"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
