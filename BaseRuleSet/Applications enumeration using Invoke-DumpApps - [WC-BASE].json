@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/0b81294c-a8a9-4145-bd4e-40516f379ced\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/0b81294c-a8a9-4145-bd4e-40516f379ced\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Applications enumeration using Invoke-DumpApps - [WC-BASE]",
+                                             "description":  "",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let InvokeDumpAppsCalls = dynamic([\"https://graph.microsoft.com/v1.0/users/\", \"https://graph.microsoft.com/v1.0/organization\" ,\"https://graph.microsoft.com/v1.0/applications\",\"https://graph.microsoft.com/v1.0/servicePrincipals/\",\u0027https://graph.microsoft.com/v1.0/servicePrincipals?$skiptoken=\"\u0027]);\r\nMicrosoftGraphActivityLogs\r\n| where UserAgent contains \"PowerShell\"\r\n| where RequestUri in~ (InvokeDumpAppsCalls) or RequestUri has_all(\"https://graph.microsoft.com/v1.0/servicePrincipals(appId=\", \"appRoleAssignedTo\")\r\n| extend RequestedAppId = extract(@\"appId=\u0027(.*?)\u0027\", 1, RequestUri)\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1526"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "RequestUri"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

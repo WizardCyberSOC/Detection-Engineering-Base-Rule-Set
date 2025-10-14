@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/42ae503f-ca2b-4e0e-a175-cc75e31d47b9\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/42ae503f-ca2b-4e0e-a175-cc75e31d47b9\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Anomalous sign-in location by user account and authenticating application - [WC-BASE-M]",
+                                             "description":  "This query over Azure Active Directory sign-in considers all user sign-ins for each Azure Active \nDirectory application and picks out the most anomalous change in location profile for a user within an \nindividual application. An alert is generated for recent sign-ins that have location counts that are anomalous\nover last day but also over the last 3-day and 7-day periods.\nPlease note that on workspaces with larger volume of Signin data (~10M+ events a day) may timeout when using this default query time period.\nIt is recommended that you test and tune this appropriately for the workspace.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let lookBack_long = 14d;\nlet lookBack_med = 7d;\nlet lookBack = 1d;\nSigninLogs\n| where TimeGenerated \u003e= startofday(ago(lookBack_long))\n| extend locationString = strcat(tostring(LocationDetails[\"countryOrRegion\"]), \"/\", tostring(LocationDetails[\"state\"]), \"/\", tostring(LocationDetails[\"city\"]), \";\") \n| project TimeGenerated, AppDisplayName, UserPrincipalName, locationString \n// Create time series \n| make-series dLocationCount = dcount(locationString)\n    on TimeGenerated\n    in range(startofday(ago(lookBack_long)), now(), 1d) \n    by UserPrincipalName, AppDisplayName \n// Compute best fit line for each entry \n| extend (RSquare, Slope, Variance, RVariance, Interception, LineFit)=series_fit_line(dLocationCount) \n// Chart the 3 most interesting lines  \n// A 0-value slope corresponds to an account being completely stable over time for a given Azure Active Directory application\n| where Slope \u003e 0.3\n| top 50 by Slope desc\n| join kind = leftsemi (\n    SigninLogs\n    | where TimeGenerated \u003e= startofday(ago(lookBack_med))\n    | extend locationString = strcat(tostring(LocationDetails[\"countryOrRegion\"]), \"/\", tostring(LocationDetails[\"state\"]), \"/\", tostring(LocationDetails[\"city\"]), \";\") \n    | project TimeGenerated, AppDisplayName, UserPrincipalName, locationString \n    | make-series dLocationCount = dcount(locationString)\n        on TimeGenerated\n        in range(startofday(ago(lookBack_med)), now(), 1d) \n        by UserPrincipalName, AppDisplayName \n    | extend (RSquare, Slope, Variance, RVariance, Interception, LineFit)=series_fit_line(dLocationCount) \n    | top 50 by Slope desc\n    | where Slope \u003e 0.3\n    )\n    on UserPrincipalName, AppDisplayName\n| join kind = leftsemi (\n    SigninLogs\n    | where TimeGenerated \u003e= startofday(ago(lookBack))\n    | extend locationString = strcat(tostring(LocationDetails[\"countryOrRegion\"]), \"/\", tostring(LocationDetails[\"state\"]), \"/\", tostring(LocationDetails[\"city\"]), \";\") \n    | project TimeGenerated, AppDisplayName, UserPrincipalName, locationString \n    | make-series dLocationCount = dcount(locationString)\n        on TimeGenerated\n        in range(startofday(ago(lookBack)), now(), 1d) \n        by UserPrincipalName, AppDisplayName \n    | extend (RSquare, Slope, Variance, RVariance, Interception, LineFit)=series_fit_line(dLocationCount) \n    | top 50 by Slope desc\n    // Higher threshold requirement on last day anomaly\n    | where Slope \u003e 5\n    )\n    on UserPrincipalName, AppDisplayName\n| extend timestamp = TimeGenerated, AccountCustomEntity = UserPrincipalName\n| where AppDisplayName != \"Office 365 Exchange Online\"\n",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "7cb8f77d-c52f-4e46-b82f-3cf2e106224a",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AppDisplayName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

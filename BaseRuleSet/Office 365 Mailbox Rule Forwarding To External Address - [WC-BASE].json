@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/4e92d9fc-028a-4b33-bae0-5e0177d53bb3\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/4e92d9fc-028a-4b33-bae0-5e0177d53bb3\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Office 365 Mailbox Rule Forwarding To External Address - [WC-BASE]",
+                                             "description":  "This alert rule will query the OfficeActivity table to find any events where a Mailbox Forwarding Rule has been enabled and the recieving email is not an address within the company. This may indicate a exfiltration attempt on a users mailbox.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let GetTenantDomain= \r\n    EmailEvents\r\n    | where EmailDirection == \"Inbound\"\r\n    | extend TenantDomain = tostring(split(RecipientEmailAddress, \"@\", 1).[0])\r\n    | summarize count() by TenantDomain\r\n    | order by count_ desc \r\n    | take 5\r\n    | project TenantDomain;\r\nOfficeActivity\r\n| where Operation in (\u0027New-InboxRule\u0027, \u0027Set-Mailbox\u0027, \u0027Set-InboxRule\u0027, \u0027Enable-InboxRule\u0027)\r\n| extend details = parse_json(Parameters)\r\n| where details contains \u0027ForwardTo\u0027 or details contains \u0027RedirectTo\u0027\r\n| extend ForwardTo = iif(\r\n                         details[0].Name contains \u0027ForwardTo\u0027,\r\n                         details[0].Value,\r\n                         iif(\r\n    details[1].Name contains \u0027ForwardTo\u0027,\r\n    details[1].Value,\r\n    iif(\r\n    details[2].Name contains \u0027ForwardTo\u0027,\r\n    details[2].Value,\r\n    iif(\r\n    details[3].Name contains \u0027ForwardTo\u0027,\r\n    details[3].Value,\r\n    iif(\r\n    details[4].Name contains \u0027ForwardTo\u0027,\r\n    details[4].Value,\r\n    \u0027\u0027\r\n)\r\n)\r\n)\r\n)\r\n                     )\r\n| extend RedirectTo = iif(\r\n                          details[0].Name contains \u0027RedirectTo\u0027,\r\n                          details[0].Value,\r\n                          iif(\r\n    details[1].Name contains \u0027RedirectTo\u0027,\r\n    details[1].Value,\r\n    iif(\r\n    details[2].Name contains \u0027RedirectTo\u0027,\r\n    details[2].Value,\r\n    iif(\r\n    details[3].Name contains \u0027RedirectTo\u0027,\r\n    details[3].Value,\r\n    iif(\r\n    details[4].Name contains \u0027RedirectTo\u0027,\r\n    details[4].Value,\r\n    \u0027\u0027\r\n)\r\n)\r\n)\r\n)\r\n                      )\r\n| extend RuleName = iif(\r\n                        details[3].Name contains \u0027Name\u0027,\r\n                        details[3].Value,\r\n                        iif(\r\n    details[4].Name contains \u0027Name\u0027,\r\n    details[4].Value,\r\n    iif(\r\n    details[5].Name contains \u0027name\u0027,\r\n    details[5].Value,\r\n    \u0027Check Parameters\u0027\r\n)\r\n)\r\n                    )\r\n| extend RuleParameters = iif(\r\n                              details[2].Name != \u0027ForwardTo\u0027 and details[2].Name != \u0027RedirectTo\u0027,\r\n                              strcat(tostring(details[2].Name), \u0027-\u0027, tostring(details[2].Value)),\r\n                              iif(\r\n    details[3].Name != \u0027ForwardTo\u0027 and details[3].Name != \u0027RedirectTo\u0027 and details[3].Name != \u0027Name\u0027,\r\n    strcat(tostring(details[3].Name), \u0027-\u0027, tostring(details[3].Value)),\r\n    iff(\r\n    details[4].Name != \u0027ForwardTo\u0027 and details[4].Name != \u0027RedirectTo\u0027 and details[4].Name != \u0027Name\u0027 and details[4].Name != \u0027StopProcessingRules\u0027,\r\n    strcat(tostring(details[4].Name), \u0027-\u0027, tostring(details[4].Value)),\r\n    \u0027All Mail\u0027\r\n)\r\n)\r\n                          )\r\n| project\r\n    TimeGenerated,\r\n    Operation,\r\n    RuleName,\r\n    RuleParameters,\r\n    iif(details contains \u0027ForwardTo\u0027, ForwardTo, RedirectTo),\r\n    ClientIP,\r\n    UserId,\r\n    details\r\n| project-rename Email_Forwarded_To = Column1, Creating_User = UserId\r\n| extend EmailRecipients = split(Email_Forwarded_To,\";\")\r\n| mv-expand EmailRecipients\r\n| extend Domain = split(EmailRecipients,\"@\").[1]\r\n| where isnotempty( Domain)\r\n| where not( Domain in (GetTenantDomain))",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Collection",
+                                                             "Exfiltration"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1114",
+                                                                "T1020"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "CreatedBy":  "Creating_User"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ClientIP"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "Email_Forwarded_To"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

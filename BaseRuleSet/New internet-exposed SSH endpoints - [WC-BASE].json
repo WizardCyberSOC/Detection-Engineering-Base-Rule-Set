@@ -1,0 +1,80 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/6ab51742-1681-47a7-a108-f65403cd5f17\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/6ab51742-1681-47a7-a108-f65403cd5f17\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "New internet-exposed SSH endpoints - [WC-BASE]",
+                                             "description":  "Looks for SSH endpoints that rarely are accessed from a public IP address, in comparison with their history of sign-ins from private IP addresses.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let PrivateIPregex = @\u0027^127\\.|^10\\.|^172\\.1[6-9]\\.|^172\\.2[0-9]\\.|^172\\.3[0-1]\\.|^192\\.168\\.\u0027; \nlet avgthreshold = 0;\nlet probabilityLimit = 0.01;\nlet ssh_logins = Syslog\n| where Facility contains \"auth\" and ProcessName =~ \"sshd\"\n| where SyslogMessage has \"Accepted\"\n| extend SourceIP = extract(\"(([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.([0-9]{1,3})\\\\.(([0-9]{1,3})))\",1,SyslogMessage) \n| where isnotempty(SourceIP)\n| extend ipType = iff(SourceIP matches regex PrivateIPregex,\"private\" ,\"public\");\nssh_logins \n| summarize privatecount=countif(ipType==\"private\"), publiccount=countif(ipType==\"public\") by HostName, HostIP, bin(EventTime, 1d)\n| summarize \npublicIPLoginHistory  = make_list(pack(\u0027IPCount\u0027, publiccount,  \u0027logon_time\u0027, EventTime)),\nprivateIPLoginHistory = make_list(pack(\u0027IPCount\u0027, privatecount, \u0027logon_time\u0027, EventTime)) by HostName, HostIP\n| mv-apply publicIPLoginHistory = publicIPLoginHistory on\n(\n    order by todatetime(publicIPLoginHistory[\u0027logon_time\u0027]) asc\n    | summarize publicIPLoginCountList=make_list(toint(publicIPLoginHistory[\u0027IPCount\u0027])), publicAverage=avg(toint(publicIPLoginHistory[\u0027IPCount\u0027])), publicStd=stdev(toint(publicIPLoginHistory[\u0027IPCount\u0027])), maxPublicLoginCount=max(toint(publicIPLoginHistory[\u0027IPCount\u0027]))\n)\n| mv-apply privateIPLoginHistory = privateIPLoginHistory on\n(\n    order by todatetime(privateIPLoginHistory[\u0027logon_time\u0027]) asc\n    | summarize privateIPLoginCountList=make_list(toint(privateIPLoginHistory[\u0027IPCount\u0027])), privateAverage=avg(toint(privateIPLoginHistory[\u0027IPCount\u0027])), privateStd=stdev(toint(privateIPLoginHistory[\u0027IPCount\u0027]))\n)\n// Some logins from private IPs\n| where privateAverage \u003e avgthreshold\n// There is a non-zero number of logins from public IPs\n| where publicAverage \u003e avgthreshold\n// Approximate probability of seeing login from a public IP is \u003c 1%\n| extend probabilityPublic = publicAverage / (privateAverage + publicAverage)\n| where probabilityPublic \u003c probabilityLimit\n// Today has the highest number of logins from public IPs that we\u0027ve seen in the last week\n| extend publicLoginCountToday = publicIPLoginCountList[-1]\n| where publicLoginCountToday \u003e= maxPublicLoginCount\n| extend HostCustomEntity = HostName\n// Optionally retrieve the original raw data for those logins that we\u0027ve identified as potentially suspect\n// | join kind=rightsemi (\n//   ssh_logins\n//  | where ipType == \"public\"\n//  ) on HostName",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1083"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "4915c713-ab38-432e-800b-8e2d46933de6",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "HostCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

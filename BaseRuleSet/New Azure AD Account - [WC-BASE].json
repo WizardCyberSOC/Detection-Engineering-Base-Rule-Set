@@ -1,0 +1,101 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/91d26a91-f547-4de4-a9ef-6a4315fc5766\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/91d26a91-f547-4de4-a9ef-6a4315fc5766\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "New Azure AD Account - [WC-BASE]",
+                                             "description":  "A new account has been created in Entra ID.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "AuditLogs\r\n| where OperationName == \"Add user\"\r\n| where parse_json(tostring(InitiatedBy.user)).userPrincipalName !startswith \"Sync_\"\r\n| extend DisplayName = tostring(parse_json(TargetResources[0]).[\"modifiedProperties\"][1].[\"newValue\"])\r\n| extend userPrincipalName = tostring(parse_json(TargetResources[0]).[\"userPrincipalName\"])\r\n| extend CustomEntity = strcat(\r\n\"Time: \", format_datetime(TimeGenerated, \u0027dd-MM-yyyy hh:mm:ss\u0027),\r\n\"\\nInitiator: \", iff(isempty(InitiatedBy.user.userPrincipalName),InitiatedBy.app.displayName,InitiatedBy.user.userPrincipalName),\r\n\"\\nAccount Added: \", userPrincipalName\r\n)\r\n| extend IPAddress = parse_json(tostring(InitiatedBy.user)).ipAddress",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1136",
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Initiator":  "InitiatedBy",
+                                                                   "AddedAccount":  "userPrincipalName"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "InitiatedBy"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "userPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

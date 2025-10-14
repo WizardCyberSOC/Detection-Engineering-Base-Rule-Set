@@ -1,0 +1,80 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/3f62904a-5afd-4775-af13-6ab837f50ed3\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/3f62904a-5afd-4775-af13-6ab837f50ed3\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Missing Domain Controller Heartbeat - [WC-BASE-C]",
+                                             "description":  "This detection will go over the heartbeats received from the agents of Domain Controllers over the last hour, and will create alerts if the last heartbeats were received an hour ago.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let query_frequency = 15m;\nlet missing_period = 1h;\n//Enter a reference list of hostnames for your DC servers\nlet DCServersList = dynamic ([\"List DCs here\"]);\n//Alternatively, a Watchlist can be used\n//let DCServersList = _GetWatchlist(\u0027HostName-DomainControllers\u0027) | project HostName;\nHeartbeat\n| summarize arg_max(TimeGenerated, *) by Computer\n| where Computer in (DCServersList)\n//You may specify the OS type of your Domain Controllers\n//| where OSType == \u0027Windows\u0027\n| where TimeGenerated between (ago(query_frequency + missing_period) .. ago(missing_period))\n| project TimeGenerated, Computer, OSType, Version, ComputerEnvironment, Type, Solutions\n| sort by TimeGenerated asc",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT2H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion",
+                                                             "Impact"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1564",
+                                                                "T1499"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "b8b8ba09-1e89-45a1-8bd7-691cd23bfa32",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "Computer"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
