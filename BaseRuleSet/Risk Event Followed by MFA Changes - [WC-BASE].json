@@ -1,0 +1,85 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/07c7a4a8-f38f-4748-acae-31fb003963d5\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/07c7a4a8-f38f-4748-acae-31fb003963d5\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Risk Event Followed by MFA Changes - [WC-BASE]",
+                                             "description":  "Detects when a user flags an Azure AD risk event followed by changes to their MFA profile - potentially detecting a bad actor changing MFA details",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "// Detects when a user flags an Azure AD risk event followed by changes to their MFA profile - potentially detecting a bad actor changing MFA details\r\n\r\n//Data connector required for this query - Azure Active Directory - AAD User Risk Events\r\n//Data connector required for this query - Azure Active Directory - Audit Logs\r\n\r\n// Timeframe = the minutes between flagging a risk event and MFA details being changed\r\nlet timeframe = 120;\r\n//Search for real time risk events only and retrieve Correlation Id\r\nAADUserRiskEvents\r\n| where TimeGenerated \u003e ago (1d)\r\n| where DetectionTimingType == \"realtime\"\r\n| where RiskDetail \u003c\u003e \"aiConfirmedSigninSafe\"\r\n| project CorrelationId\r\n//Join Correlation Id back to sign in data to retrieve the initial sign in time that was flagged for risk\r\n| join kind=inner(\r\nSigninLogs\r\n| where TimeGenerated \u003e ago (1d))\r\non CorrelationId\r\n| summarize [\u0027Risky Signin Time\u0027]=min(TimeGenerated) by CorrelationId, UserPrincipalName\r\n//Join risky sign in UserPrincipalName to audit log for MFA events\r\n| join kind=inner (\r\n    AuditLogs\r\n    | where TimeGenerated \u003e ago (1d)\r\n    | where OperationName in (\"User registered security info\", \"User deleted security info\",\"User registered all required security info\")\r\n    | where Result == \"success\"\r\n    | extend UserPrincipalName = tostring(TargetResources[0].userPrincipalName)\r\n//Find the latest event in the MFA registration process\r\n    | summarize arg_max(TimeGenerated, *) by UserPrincipalName\r\n    | project\r\n        [\u0027MFA Change Time\u0027]=TimeGenerated,\r\n        OperationName,\r\n        UserPrincipalName)\r\n    on UserPrincipalName\r\n//Calculate the time between the initial sign in event and the MFA change time\r\n| extend [\u0027Minutes Between Events\u0027]=datetime_diff(\"minute\",[\u0027MFA Change Time\u0027], [\u0027Risky Signin Time\u0027])\r\n| project-away UserPrincipalName1\r\n| project-reorder [\u0027Risky Signin Time\u0027], [\u0027MFA Change Time\u0027], [\u0027Minutes Between Events\u0027], UserPrincipalName, OperationName, CorrelationId\r\n//Find events where the time between the two events was less than 120 minutes\r\n| where [\u0027Minutes Between Events\u0027] \u003c timeframe",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P1D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "InitialAccess",
+                                                             "CredentialAccess",
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1098",
+                                                                "T1078",
+                                                                "T1556"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

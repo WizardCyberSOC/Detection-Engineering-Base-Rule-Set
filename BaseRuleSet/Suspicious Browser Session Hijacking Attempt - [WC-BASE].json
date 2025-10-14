@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/40cef269-d781-4a3c-a944-e694f9f3a5e7\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/40cef269-d781-4a3c-a944-e694f9f3a5e7\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Suspicious Browser Session Hijacking Attempt - [WC-BASE]",
+                                             "description":  "Detects potential attempts to hijack web browser sessions by identifying PowerShell commands interacting with sensitive browser data (e.g., cookies, saved credentials, session tokens). It monitors activity around major browsers (Chrome, Firefox, Edge, etc.) and filters out common benign operations like updates or installs to reduce false positives.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceEvents\r\n| where ActionType contains \"PowerShellCommand\"\r\n| where (\r\n    // Target common browsers\r\n    FileName in (\"chrome.exe\", \"firefox.exe\", \"msedge.exe\", \"iexplore.exe\", \"opera.exe\", \"brave.exe\") or\r\n    InitiatingProcessParentFileName  in (\"chrome.exe\", \"firefox.exe\", \"msedge.exe\", \"iexplore.exe\", \"opera.exe\", \"brave.exe\")\r\n)\r\n| where (\r\n    // Indicators of session hijacking\r\n    ProcessCommandLine contains \"dump\" or\r\n    ProcessCommandLine contains \"password\" or\r\n    ProcessCommandLine contains \"cookie\" or\r\n    ProcessCommandLine contains \"session\" or\r\n    ProcessCommandLine contains \"credential\" or\r\n    ProcessCommandLine contains \"chrome://settings/passwords\" or\r\n    ProcessCommandLine contains \"Local State\" or\r\n    ProcessCommandLine contains \"Login Data\" or\r\n    ProcessCommandLine contains \"Web Data\" or\r\n    ProcessCommandLine contains \"Cookies\"\r\n)\r\n| where not (\r\n    // Exclude legitimate browser-related activities\r\n    ProcessCommandLine contains \"update\" or\r\n    ProcessCommandLine contains \"install\" or\r\n    ProcessCommandLine contains \"patch\" or\r\n    ProcessCommandLine contains \"backup\"\r\n)\r\n| where AccountSid != \"S-1-5-18\" // Exclude system activities\r\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Collection"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1185"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AccountName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Process",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "CommandLine",
+                                                                                                  "columnName":  "ProcessCommandLine"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

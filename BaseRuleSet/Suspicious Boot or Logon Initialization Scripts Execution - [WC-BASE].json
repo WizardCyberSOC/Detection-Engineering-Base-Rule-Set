@@ -1,0 +1,79 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/624e1587-5c57-4731-8303-5c96c16a740d\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/624e1587-5c57-4731-8303-5c96c16a740d\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Suspicious Boot or Logon Initialization Scripts Execution - [WC-BASE]",
+                                             "description":  "Attackers may abuse these scripts to execute malicious code during system startup or user logon, ensuring persistence on the targeted system. The rule monitors for the creation, modification, or execution of scripts in common startup locations, focusing on unusual or unauthorized changes.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceEvents\r\n| where ActionType in (\"FileCreated\", \"FileModified\", \"ProcessCreated\")\r\n| where (\r\n    // Target common startup or logon script locations\r\n    FolderPath contains @\"\\Startup\" or\r\n    FolderPath contains @\"\\All Users\\Start Menu\\Programs\\Startup\" or\r\n    FolderPath contains @\"\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\" or\r\n    FolderPath contains @\"\\Windows\\System32\\GroupPolicy\\User\\Scripts\\Logon\" or\r\n    FolderPath contains @\"\\Windows\\System32\\GroupPolicy\\Machine\\Scripts\\Startup\" or\r\n    FileName endswith \".bat\" or\r\n    FileName endswith \".cmd\" or\r\n    FileName endswith \".vbs\" or\r\n    FileName endswith \".ps1\")\r\n| where (\r\n    // Indicators of suspicious behavior\r\n    ProcessCommandLine contains \"net user\" or\r\n    ProcessCommandLine contains \"net localgroup\" or\r\n    ProcessCommandLine contains \"reg add\" or\r\n    ProcessCommandLine contains \"reg delete\" or\r\n    ProcessCommandLine contains \"schtasks\" or\r\n    ProcessCommandLine contains \"set-itemproperty\" or\r\n    ProcessCommandLine contains \"Add-MpPreference\" or\r\n    ProcessCommandLine contains \"Remove-MpPreference\")\r\n| where not(\r\n    // Exclude known legitimate administrative scripts\r\n    ProcessCommandLine contains \"Group Policy Update\" or\r\n    ProcessCommandLine contains \"scheduled\")",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "PrivilegeEscalation"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1037"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
