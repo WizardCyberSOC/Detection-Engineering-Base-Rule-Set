@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/8e083ebf-b132-4c0d-bb82-a6fe6ad28dd9\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/8e083ebf-b132-4c0d-bb82-a6fe6ad28dd9\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Explicit MFA Deny - [WC-BASE-M]",
+                                             "description":  "User explicitly denies MFA push, indicating that login was not expected and the account\u0027s password may be compromised.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 1;\nlet FailedMFASignins = SigninLogs\n    | where TimeGenerated \u003e ago(1h) // CAN BE 1 DAY DEP. ON TENANT\n    | where ResultType == 500121\n    | where Status has \"MFA Denied; user declined the authentication\"\n        or Status has \"MFA denied; Phone App Reported Fraud\"\n        or Status has \"MFA denied; user did not select the correct number\"\n        or Status has \"MFA denied; user did not respond to mobile app notification\"\n| project\n        TimeGenerated,\n        ResultType,\n        ResultDescription,\n        UserPrincipalName,\n        IPAddress,\n        Status,\n        AppDisplayName,\n        Device = tostring(DeviceDetail.operatingSystem),\n        City =  strcat(Location, \"-\", LocationDetails.state) \n    | summarize \n        MFAFailedCount=count(),\n        ErrorStatus = make_set(Status),\n        FailedAppsList = make_set(AppDisplayName),\n         FirstTime = min(TimeGenerated)\n        by bin(TimeGenerated, 1h), UserPrincipalName, IPAddress, Device, City // CAN BE 1 DAY DEP. ON TENANT\n    | where MFAFailedCount \u003e threshold;\nlet SuccessfulMFASignins = SigninLogs\n    | where TimeGenerated \u003e ago(1h) // CAN BE 1 DAY DEP. ON TENANT\n    | where ResultType != 500121 // Assuming non-500121 result type is a successful MFA\n    | project TimeGenerated, ResultType, UserPrincipalName, IPAddress\n    | summarize SuccessfulMFACount=count() by UserPrincipalName, IPAddress;\nlet SameIPUsersSignins = SigninLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where ResultType == 0\n    | join kind=inner (FailedMFASignins) on IPAddress\n    | where UserPrincipalName contains \"@\"\n    | summarize SameIPUsers14DaysCount = dcount(UserPrincipalName) by IPAddress\n    | where SameIPUsers14DaysCount \u003e 1\n    | distinct IPAddress;\nlet ManagedAttempts = SigninLogs\n| union AADNonInteractiveUserSignInLogs\n| where TimeGenerated \u003e ago(14d)\n| where (tostring( parse_json(DeviceDetail_dynamic).trustType) != \"\") or (tostring( parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic contains \"PII Removed\") or (DeviceDetail_string contains \"PII Removed\")\n| distinct IPAddress;\nlet FamiliarProperties = SigninLogs\n| where TimeGenerated between (ago(14d) .. ago(1h))\n| where ResultType == 0\n| extend FamiliarDevice = tostring(DeviceDetail.operatingSystem), FamiliarCity = strcat(Location, \"-\", LocationDetails.state),\nFamiliarIPSubnet = iff(\n    indexof(IPAddress, \":\") != -1,  // If colon exists, it\u0027s IPv6\n    trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \":\", indexof(IPAddress, \":\") + 1))),\n    trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \".\", indexof(IPAddress, \".\") + 1)))\n)\n| summarize FamiliarDevices = make_set(FamiliarDevice),FamiliarCities = make_set(FamiliarCity), FamiliarIPSubnets = make_set(FamiliarIPSubnet) by UserPrincipalName;\nFailedMFASignins\n| join kind=inner (SuccessfulMFASignins) on UserPrincipalName, IPAddress\n| join kind=leftanti ManagedAttempts on IPAddress\n| join kind=leftanti SameIPUsersSignins on IPAddress\n| extend IPSubnet = iff(\n    indexof(IPAddress, \":\") != -1,  // If colon exists, it\u0027s IPv6\n    trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \":\", indexof(IPAddress, \":\") + 1))),\n    trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \".\", indexof(IPAddress, \".\") + 1)))\n)\n| join kind=leftouter FamiliarProperties on UserPrincipalName\n| project\n    FirstTime,\n    UserPrincipalName,\n    IPAddress,\n    City,\n    Device,\n    MFAFailedCount,\n    FailedAppsList,\n    ErrorStatus,\n    SuccessfulMFACount,\n    IPSubnet,\n    FamiliarCities,\n    FamiliarDevices,\n    FamiliarIPSubnets\n| where not( (FamiliarDevices has Device) and (FamiliarIPSubnets has IPSubnet) and (FamiliarCities has City))",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110",
+                                                                "T1078",
+                                                                "T1621"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "a22740ec-fc1e-4c91-8de6-c29c6450ad00",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,95 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/5348d543-b871-46d3-8537-71a53aba9bb5\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/5348d543-b871-46d3-8537-71a53aba9bb5\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Rare application consent - [WC-BASE]",
+                                             "description":  "This will alert when the \"Consent to application\" operation occurs by a user that has not done this operation before or rarely does this.\nThis could indicate that permissions to access the listed Azure App were provided to a malicious actor.\nConsent to application, Add service principal and Add OAuth2PermissionGrant should typically be rare events.\nThis may help detect the Oauth2 attack that can be initiated by this publicly available tool - https://github.com/fireeye/PwnAuth\nFor further information on AuditLogs please see https://docs.microsoft.com/azure/active-directory/reports-monitoring/reference-audit-activities.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let current = 1h;\nlet auditLookback = 14d;\n// Setting threshold to 3 as a default, change as needed.\n// Any operation that has been initiated by a user or app more than 3 times in the past 7 days will be excluded\nlet threshold = 0;\n// Gather initial data from lookback period, excluding current, adjust current to more than a single day if no results\nlet AuditTrail = AuditLogs | where TimeGenerated \u003e= ago(auditLookback) and TimeGenerated \u003c ago(current)\n// 2 other operations that can be part of malicious activity in this situation are\n// \"Add OAuth2PermissionGrant\" and \"Add service principal\", extend the filter below to capture these too\n| where OperationName has \"Consent to application\"\n| extend InitiatedBy = iff(isnotempty(tostring(InitiatedBy.user.userPrincipalName)),\n          tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))\n| mv-apply TargetResource = TargetResources on \n  (\n      where TargetResource.type =~ \"ServicePrincipal\"\n      | extend TargetResourceName = tolower(tostring(TargetResource.displayName))\n  )\n| summarize max(TimeGenerated), OperationCount = count() by OperationName, InitiatedBy, TargetResourceName\n// only including operations initiated by a user or app that is above the threshold so we produce only rare and has not occurred in last 7 days\n| where OperationCount \u003e threshold;\n// Gather current period of audit data\nlet RecentConsent = AuditLogs | where TimeGenerated \u003e= ago(current)\n| where OperationName has \"Consent to application\"\n| extend IpAddress = case(\n              isnotempty(tostring(InitiatedBy.user.ipAddress)) and tostring(InitiatedBy.user.ipAddress) != \u0027null\u0027, tostring(InitiatedBy.user.ipAddress),\n              isnotempty(tostring(InitiatedBy.app.ipAddress)) and tostring(InitiatedBy.app.ipAddress) != \u0027null\u0027, tostring(InitiatedBy.app.ipAddress),\n              \u0027Not Available\u0027)\n| extend InitiatedBy = iff(isnotempty(tostring(InitiatedBy.user.userPrincipalName)),\n                          tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))\n| mv-apply TargetResource = TargetResources on \n  (\n      where TargetResource.type =~ \"ServicePrincipal\"\n      | extend TargetResourceName = tolower(tostring(TargetResource.displayName)),\n               props = TargetResource.modifiedProperties\n  )\n| parse props with * \"ConsentType: \" ConsentType \"]\" *\n| mv-apply AdditionalDetail = AdditionalDetails on \n  (\n      where AdditionalDetail.key =~ \"User-Agent\"\n      | extend UserAgent = tostring(AdditionalDetail.value)\n  )\n| project TimeGenerated, InitiatedBy, IpAddress, TargetResourceName, Category, OperationName, ConsentType, UserAgent, CorrelationId, Type;\n// Exclude previously seen audit activity for \"Consent to application\" that was seen in the lookback period\n// First for rare InitiatedBy\nlet RareConsentBy = RecentConsent | join kind= leftanti AuditTrail on OperationName, InitiatedBy\n| extend Reason = \"Previously unseen user consenting\";\n// Second for rare TargetResourceName\nlet RareConsentApp = RecentConsent | join kind= leftanti AuditTrail on OperationName, TargetResourceName\n| extend Reason = \"Previously unseen app granted consent\";\nRareConsentBy | union RareConsentApp\n| summarize Reason = make_set(Reason,100) by TimeGenerated, InitiatedBy, IpAddress, TargetResourceName, Category, OperationName, ConsentType, UserAgent, CorrelationId, Type\n| extend timestamp = TimeGenerated, Name = tolower(tostring(split(InitiatedBy,\u0027@\u0027,0)[0])), UPNSuffix = tolower(tostring(split(InitiatedBy,\u0027@\u0027,1)[0]))\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  3,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "PrivilegeEscalation"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1136",
+                                                                "T1068"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "83ba3057-9ea3-4759-bf6a-933f2e5bc7ee",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "TargetResourceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "InitiatedBy"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "UPNSuffix",
+                                                                                                  "columnName":  "InitiatedBy"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.1.5"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

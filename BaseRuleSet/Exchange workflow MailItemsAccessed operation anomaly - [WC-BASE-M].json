@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/14b28a3f-8251-4799-a4e6-99cdf15da90a\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/14b28a3f-8251-4799-a4e6-99cdf15da90a\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Exchange workflow MailItemsAccessed operation anomaly - [WC-BASE-M]",
+                                             "description":  "Identifies anomalous increases in Exchange mail items accessed operations.\nThe query leverages KQL built-in anomaly detection algorithms to find large deviations from baseline patterns.\nSudden increases in execution frequency of sensitive actions should be further investigated for malicious activity.\nManually change scorethreshold from 1.5 to 3 or higher to reduce the noise based on outliers flagged from the query criteria.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let starttime = 14d;\nlet endtime = 1d;\nlet timeframe = 1h;\nlet scorethreshold = 2;\nlet percentthreshold = 50;\nlet ManagedAttempts = SigninLogs\n| union AADNonInteractiveUserSignInLogs\n| where TimeGenerated \u003e ago(14d)\n| where isnotempty( DeviceDetail_dynamic.deviceId) or isnotempty( tostring(parse_json(DeviceDetail_string).deviceId))\n| distinct IPAddress;\nlet NonManagedUsers = SigninLogs\n| where TimeGenerated \u003e ago(7d)\n| join kind=leftanti ManagedAttempts on IPAddress\n| where ResultType !in (\"50126\",\"50053\")\n| distinct UserPrincipalName = tolower(UserPrincipalName);\n// Preparing the time series data aggregated hourly count of MailItemsAccessd Operation in the form of multi-value array to use with time series anomaly function.\nlet TimeSeriesData =\n    OfficeActivity\n    | where TimeGenerated between (startofday(ago(starttime)) .. startofday(ago(endtime)))\n    | where OfficeWorkload =~ \"Exchange\"\n        and Operation =~ \"MailItemsAccessed\"\n        and ResultStatus =~ \"Succeeded\"\n    | project TimeGenerated, Operation, MailboxOwnerUPN\n    | make-series Total=count() on TimeGenerated from startofday(ago(starttime)) to startofday(ago(endtime)) step timeframe;\nlet TimeSeriesAlerts = TimeSeriesData\n    | extend (anomalies, score, baseline) = series_decompose_anomalies(Total, scorethreshold, -1, \u0027linefit\u0027)\n    | mv-expand\n        Total to typeof(double),\n        TimeGenerated to typeof(datetime),\n        anomalies to typeof(double),\n        score to typeof(double),\n        baseline to typeof(long)\n    | where anomalies \u003e 0\n    | project TimeGenerated, Total, baseline, anomalies, score;\n// Joining the flagged outlier from the previous step with the original dataset to present contextual information\n// during the anomalyhour to analysts to conduct investigation or informed decisions.\nTimeSeriesAlerts\n| where TimeGenerated \u003e ago(2d)\n// Join against base logs since specified timeframe to retrive records associated with the hour of anomoly\n| join (\n    OfficeActivity\n    | where TimeGenerated \u003e ago(2d)\n    | extend DateHour = bin(TimeGenerated, 1h)\n    | where OfficeWorkload =~ \"Exchange\"\n        and Operation =~ \"MailItemsAccessed\"\n        and ResultStatus =~ \"Succeeded\"\n    | summarize\n        HourlyCount=count(),\n        TimeGeneratedMax = arg_max(TimeGenerated, *),\n        IPAdressList = make_set(Client_IPAddress),\n        SourceIPMax= arg_max(Client_IPAddress, *),\n        ClientInfoStringList= make_set(ClientInfoString)\n        by\n        MailboxOwnerUPN,\n        Logon_Type,\n        TenantId,\n        UserType,\n        TimeGenerated = bin(TimeGenerated, 1h) \n    | where HourlyCount \u003e 25 // Only considering operations with more than 25 hourly count to reduce False Positivies\n    | order by HourlyCount desc \n    )\n    on TimeGenerated\n| extend PercentofTotal = round(HourlyCount / Total, 2) * 100 \n| where PercentofTotal \u003e percentthreshold // Filter Users with count of less than 5 percent of TotalEvents per Hour to remove FPs/ users with very low count of MailItemsAccessed events\n| order by PercentofTotal desc \n| project-reorder\n    TimeGeneratedMax,\n    Type,\n    OfficeWorkload,\n    Operation,\n    UserId,\n    SourceIPMax,\n    IPAdressList,\n    ClientInfoStringList,\n    HourlyCount,\n    PercentofTotal,\n    Total,\n    baseline,\n    score,\n    anomalies\n| extend timestamp = TimeGenerated, AccountCustomEntity = UserId\n| mv-expand IPAdressList\n| extend IPAdressList = tostring(IPAdressList)\n| join kind=leftanti ManagedAttempts on $left.IPAdressList == $right.IPAddress\n| extend UserId = tolower(UserId)\n| join kind=inner NonManagedUsers on $left.UserId == $right.UserPrincipalName",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Collection"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1114"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "b4ceb583-4c44-4555-8ecf-39f572e827ba",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAdressList"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

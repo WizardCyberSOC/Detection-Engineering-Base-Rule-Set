@@ -1,0 +1,90 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/d831837a-a7aa-406e-a438-c527fa4c9b20\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/d831837a-a7aa-406e-a438-c527fa4c9b20\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Successful logon from IP and failure from a different IP - [WC-BASE-M]",
+                                             "description":  "Identifies when a user account successfully logs onto an Azure App from one IP and within 10 mins failed to logon to the same App via a different IP.\nThis may indicate a malicious attempt at password guessing based on knowledge of the users account.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let timeFrame = 1h;\nlet logonDiff = 10m;\nlet alerttable = \nSigninLogs \n| where TimeGenerated \u003e= ago(timeFrame) \n| where ResultType == \"0\" \n| extend SuccessIPv6Block = strcat(split(IPAddress, \":\")[0], \":\", split(IPAddress, \":\")[1], \":\", split(IPAddress, \":\")[2], \":\", split(IPAddress, \":\")[3])\n| extend SuccessIPv4Block = strcat(split(IPAddress, \".\")[0], \".\", split(IPAddress, \".\")[1])\n| extend SuccessIPBlock = iff(IPAddress contains \":\", strcat(split(IPAddress, \":\")[0], \":\", split(IPAddress, \":\")[1]), strcat(split(IPAddress, \".\")[0], \".\", split(IPAddress, \".\")[1]))\n| project\n    SuccessLogonTime = TimeGenerated,\n    UserPrincipalName,\n    SuccessIPAddress = IPAddress,\n    AppDisplayName,\n    SuccessIPBlock\n| join kind= inner (\n    SigninLogs \n    | where TimeGenerated \u003e= ago(timeFrame) \n    | where ResultType !in (\"0\") \n    | where ResultDescription !~ \"Other\"  \n    | project\n        FailedLogonTime = TimeGenerated,\n        UserPrincipalName,\n        FailedIPAddress = IPAddress,\n        AppDisplayName,\n        ResultType,\n        ResultDescription\n    )\n    on UserPrincipalName, AppDisplayName \n| where SuccessLogonTime \u003c FailedLogonTime\n    and FailedLogonTime - SuccessLogonTime \u003c= logonDiff\n    and FailedIPAddress !startswith SuccessIPBlock\n| where FailedIPAddress != \"217.110.76.114\"\n| summarize FailedLogonTime = max(FailedLogonTime), SuccessLogonTime = max(SuccessLogonTime)\n    by\n    UserPrincipalName,\n    SuccessIPAddress,\n    AppDisplayName,\n    FailedIPAddress,\n    ResultType,\n    ResultDescription \n| extend\n    timestamp = SuccessLogonTime,\n    AccountCustomEntity = tolower(UserPrincipalName),\n    IPCustomEntity = SuccessIPAddress;\n    let FailedIPManagedAttempts = SigninLogs\n\t    | union AADNonInteractiveUserSignInLogs\n\t    | where TimeGenerated \u003e ago(14d)\n\t    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\n    | summarize FailedIPManagedAttempts = count() by IPAddress;\n    let SuccessfulIPManagedAttempts = SigninLogs\n\t    | union AADNonInteractiveUserSignInLogs\n\t    | where TimeGenerated \u003e ago(14d)\n\t    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\n    | summarize SuccessfulIPManagedAttempts = count() by IPAddress;\n    alerttable\n    | join kind=leftouter FailedIPManagedAttempts on $left.FailedIPAddress == $right.IPAddress\n    | join kind=leftouter SuccessfulIPManagedAttempts on $left.SuccessIPAddress == $right.IPAddress\n    | extend FailedIPManagedAttempts = coalesce(FailedIPManagedAttempts,0)\n    | extend SuccessfulIPManagedAttempts = coalesce(SuccessfulIPManagedAttempts, 0)\n    | project-away IPAddress1,IPAddress\n    | where SuccessfulIPManagedAttempts == 0\n    | where AppDisplayName  has_any (\"Outlook Mobile\",\"Office 365 Exchange Online\",\"Office 365\",\"OfficeHome\")\n    | where ResultType !in (\"50053\",\"50126\")\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "02ef8d7e-fc3a-4d86-a457-650fa571d8d2",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT1H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "SuccessfulIPAddress":  "SuccessIPAddress",
+                                                                   "FailedIPAddress":  "FailedIPAddress"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AppDisplayName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.1.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

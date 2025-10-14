@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/8f7b63c3-3235-4851-9b9a-044a4def7714\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/8f7b63c3-3235-4851-9b9a-044a4def7714\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "TI map Domain entity to SecurityAlert - [WC-BASE]",
+                                             "description":  "Identifies a match in SecurityAlert table from any Domain IOC from TI",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let dt_lookBack = 1h;\nlet ioc_lookBack = 14d;\n//Create a list of TLDs in our threat feed for later validation\nlet list_tlds = ThreatIntelIndicators\n| where TimeGenerated \u003e ago(ioc_lookBack)\n| where isnotempty(ObservableValue)\n| where ObservableKey == \"domain-name:value\"\n| extend parts = split(ObservableValue, \u0027.\u0027)\n| extend tld = parts[(array_length(parts)-1)]\n| summarize count() by tostring(tld)\n| summarize make_list(tld);\nThreatIntelIndicators\n| where TimeGenerated \u003e ago(14d)\n| distinct TIEntity = ObservableValue\n| where isnotempty( TIEntity)\n| join kind=innerunique (\n    SecurityAlert\n    | where TimeGenerated \u003e ago(dt_lookBack)\n    | extend MSTI = case(AlertName has \"TI map\" and VendorName == \"Microsoft\" and ProductName == \u0027Azure Sentinel\u0027, true, false)\n    | where MSTI == false\n    //Extract domain patterns from message\n    | extend domain = todynamic(dynamic_to_json(extract_all(@\"(((xn--)?[a-z0-9\\-]+\\.)+([a-z]+|(xn--[a-z0-9]+)))\", dynamic([1]), tolower(Entities))))\n    | mv-expand domain\n    | extend domain = tostring(domain[0])\n    | extend parts = split(domain, \u0027.\u0027)\n    //Split out the TLD\n    | extend tld = parts[(array_length(parts)-1)]\n    //Validate parsed domain by checking if the TLD is in the list of TLDs in our threat feed\n    | where tld in~ (list_tlds)\n    // Converting Entities into dynamic data type and use mv-expand to unpack the array\n    | extend EntitiesDynamicArray = parse_json(Entities)\n    | mv-apply EntitiesDynamicArray on\n        (summarize\n            HostName = take_anyif(tostring(EntitiesDynamicArray.HostName), EntitiesDynamicArray.Type == \"host\"),\n            IP_addr = take_anyif(tostring(EntitiesDynamicArray.Address), EntitiesDynamicArray.Type == \"ip\")\n    )\n    | extend Alert_TimeGenerated = TimeGenerated\n    | extend Alert_Description = Description\n) on $left.TIEntity==$right.domain\n| summarize Alert_TimeGenerated = arg_max(Alert_TimeGenerated, *) by  AlertName, TIEntity\n| project Alert_TimeGenerated, Description, ConfidenceScore, TIEntity, AlertName, Alert_Description, ProviderName, AlertSeverity, ConfidenceLevel, HostName, IP_addr, Entities\n| extend timestamp = Alert_TimeGenerated, HostCustomEntity = HostName, IPCustomEntity = IP_addr, DomainCustomEntity = TIEntity\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "87890d78-3e05-43ec-9ab9-ba32f4e01250",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "HostCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
