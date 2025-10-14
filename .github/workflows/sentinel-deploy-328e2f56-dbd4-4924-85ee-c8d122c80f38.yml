@@ -13,18 +13,18 @@ on:
   push:
     branches: [ main ]
     paths:
-    - '**'
+    - 'BaseRuleSet/**'
     - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
     - '.github/workflows/sentinel-deploy-328e2f56-dbd4-4924-85ee-c8d122c80f38.yml'
 
 jobs:
-  deploy-content:
+  BaseRulesDeployment:
     runs-on: windows-latest
     env:
       resourceGroupName: 'WizardCyberSOC'
       workspaceName: 'WC-SANDBOX'
       workspaceId: '393d2372-0c78-45c4-87bc-e3aff4b0915a'
-      directory: '${{ github.workspace }}'
+      directory: '${{ github.workspace }}/BaseRuleSet'
       cloudEnv: 'AzureCloud'
       contentTypes: 'AnalyticsRule'
       branch: 'main'
@@ -85,10 +85,40 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 2  # Fetch current and previous commit to detect changes
+
+    - name: Get changed files
+      id: changed-files
+      shell: pwsh
+      run: |
+        # Get list of changed JSON files in BaseRuleSet/ directory
+        $changedFiles = git diff --name-only HEAD~1 HEAD -- 'BaseRuleSet/*.json'
+        $changedFilesString = $changedFiles -join ','
+        echo "changed_files=$changedFilesString" >> $env:GITHUB_OUTPUT
+        echo "Changed files: $changedFilesString"
+        
+        # Get list of deleted JSON files in BaseRuleSet/ directory
+        $deletedFiles = git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'BaseRuleSet/*.json'
+        $deletedFilesString = $deletedFiles -join ','
+        echo "deleted_files=$deletedFilesString" >> $env:GITHUB_OUTPUT
+        echo "Deleted files: $deletedFilesString"
+        
+        # If no specific rule files changed or deleted, we don't need to deploy anything
+        if ([string]::IsNullOrWhiteSpace($changedFilesString) -and [string]::IsNullOrWhiteSpace($deletedFilesString)) {
+          echo "No JSON rule files changed or deleted, skipping deployment"
+          echo "skip_deployment=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "skip_deployment=false" >> $env:GITHUB_OUTPUT
+        }
 
     - name: Deploy Content to Microsoft Sentinel
+      if: steps.changed-files.outputs.skip_deployment == 'false'
       uses: azure/powershell@v2
       with:
         azPSVersion: 'latest'
         inlineScript: |
+          # Set changed files as environment variable for the PowerShell script
+          $env:CHANGED_FILES = "${{ steps.changed-files.outputs.changed_files }}"
+          $env:DELETED_FILES = "${{ steps.changed-files.outputs.deleted_files }}"
           ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-328e2f56-dbd4-4924-85ee-c8d122c80f38.ps1
