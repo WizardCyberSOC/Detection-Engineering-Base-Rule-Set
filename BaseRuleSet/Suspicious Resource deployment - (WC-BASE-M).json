@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e0b0ebd0-dcb0-44ef-b664-d36a5a4f206b')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e0b0ebd0-dcb0-44ef-b664-d36a5a4f206b')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Suspicious Resource deployment - [WC-BASE-M]",
+                                             "description":  "Identifies when a rare Resource and ResourceGroup deployment occurs by a previously unseen Caller.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "// Add or remove operation names below as per your requirements. For operations lists, please refer to https://learn.microsoft.com/en-us/Azure/role-based-access-control/resource-provider-operations#all\nlet szOperationNames = dynamic([\"Microsoft.Compute/virtualMachines/write\", \"Microsoft.Resources/deployments/write\", \"Microsoft.Resources/subscriptions/resourceGroups/write\"]);\nlet starttime = 14d;\nlet endtime = 1h;\nlet MSIPs = _GetWatchlist(\"MSPublicIPsV2\")\n    | project Subnet = SearchKey, FirstOctet = toint(split(SearchKey, \".\")[0]);\nlet IPManagedAttempts = SigninLogs\n    | union AADNonInteractiveUserSignInLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\"\n    | distinct IPAddress;\nlet RareCaller = AzureActivity\n    | where TimeGenerated between (ago(starttime) .. ago(endtime))\n    | where OperationNameValue in~ (szOperationNames)\n    | summarize count() by CallerIpAddress, Caller, OperationNameValue, bin(TimeGenerated, 1d)\n    // Returns all the records from the right side that don't have matches from the left.\n    | join kind=rightantisemi (\n        AzureActivity\n        | where TimeGenerated \u003e ago(endtime)\n        | where OperationNameValue in~ (szOperationNames)\n        | summarize\n            StartTimeUtc = min(TimeGenerated),\n            EndTimeUtc = max(TimeGenerated),\n            ActivityTimeStamp = make_set(TimeGenerated, 100),\n            ActivityStatusValue = make_set(ActivityStatusValue, 100),\n            CorrelationIds = make_set(CorrelationId, 100),\n            ResourceGroups = make_set(ResourceGroup, 100),\n            ResourceIds = make_set(_ResourceId, 100),\n            ActivityCountByCallerIPAddress = count()\n            by CallerIpAddress, Caller, OperationNameValue)\n        on CallerIpAddress, Caller, OperationNameValue\n        | join kind=leftanti IPManagedAttempts on $left.CallerIpAddress == $right.IPAddress;\nlet subnetCheck = RareCaller\n    | extend IP = tostring(CallerIpAddress)\n    | extend FirstOctet = toint(split(IP, \".\")[0])\n    | join kind=leftouter MSIPs on FirstOctet\n    | extend IsInSubnet = ipv4_is_in_range(IP, Subnet)\n    | summarize IsInSubnet = max(toint(IsInSubnet)) by CallerIpAddress;\n    RareCaller\n| join kind=leftouter subnetCheck on CallerIpAddress\n| extend IsInSubnet = tobool(IsInSubnet)\n| where not( Caller !contains \"@\" and IsInSubnet == true)\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Impact"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1496"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "9fb57e58-3ed8-4b89-afcf-c8e786508b1c",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "Caller"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "CallerIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

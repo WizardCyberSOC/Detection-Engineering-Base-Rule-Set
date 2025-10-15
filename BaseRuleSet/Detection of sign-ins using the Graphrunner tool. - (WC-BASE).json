@@ -1,0 +1,98 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/26bed1b8-8d3e-4fd8-87e3-e67d5108d71e')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/26bed1b8-8d3e-4fd8-87e3-e67d5108d71e')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Detection of sign-ins using the Graphrunner tool. - [WC-BASE]",
+                                             "description":  "identifies recent sign-ins to Microsoft Graph using the Device Code authentication flow that are not associated with trusted or previously known devices. It does so by comparing current sign-in attempts against a list of IP addresses from managed devices observed over the past 14 days. The goal is to detect potentially unmanaged, suspicious, or new sign-ins that may warrant further investigation, especially in scenarios involving automation or potential misuse of device code auth.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = SigninLogs\r\n    | union AADNonInteractiveUserSignInLogs\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\"\r\n        or tostring(parse_json(DeviceDetail_string).trustType) != \"\"\r\n        or DeviceDetail_dynamic contains \"PII Removed\"\r\n        or DeviceDetail_string contains \"PII Removed\"\r\n    | distinct IPAddress;\r\nSigninLogs\r\n| where TimeGenerated \u003e ago(1h)\r\n| where AuthenticationProtocol == \"deviceCode\"\r\n| where ResourceDisplayName == \"Microsoft Graph\"\r\n| join kind=leftanti ManagedAttempts on  IPAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceDetail"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
