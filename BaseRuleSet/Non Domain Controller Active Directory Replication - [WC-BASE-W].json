@@ -1,0 +1,98 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/55fa527a-19ef-41c0-b8e5-231d6a1e9ff5\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/55fa527a-19ef-41c0-b8e5-231d6a1e9ff5\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Non Domain Controller Active Directory Replication - [WC-BASE-W]",
+                                             "description":  "This query detects potential attempts by non-computer accounts (non domain controllers) to retrieve/synchronize an active directory object leveraging directory replication services (DRS).\nA Domain Controller (computer account) would usually be performing these actions in a domain environment. Another detection rule can be created to cover domain controllers accounts doing at rare times.\nA domain user with privileged permissions to use directory replication services is rare.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "SecurityEvent\n//| where Computer in (DCServersList)\n| where EventID == 4662 and ObjectServer == \u0027DS\u0027\n| where AccountType != \u0027Machine\u0027\n| where Properties has \u00271131f6aa-9c07-11d1-f79f-00c04fc2dcd2\u0027 //DS-Replication-Get-Changes\n    or Properties has \u00271131f6ad-9c07-11d1-f79f-00c04fc2dcd2\u0027 //DS-Replication-Get-Changes-All\n    or Properties has \u002789e95b76-444d-4c62-991a-0facbeda640c\u0027 //DS-Replication-Get-Changes-In-Filtered-Set\n| project TimeGenerated, Account, Activity, Properties, SubjectLogonId, Computer\n| join kind=leftouter\n    (\n    SecurityEvent\n    //| where Computer in (DCServersList)\n    | where EventID == 4624 and LogonType == 3\n    | where AccountType != \u0027Machine\u0027\n    | project TargetLogonId, IpAddress\n    )\n    on $left.SubjectLogonId == $right.TargetLogonId\n| project-reorder TimeGenerated, Computer, Account, IpAddress\n| extend\n    timestamp = TimeGenerated,\n    AccountCustomEntity = Account,\n    HostCustomEntity = Computer,\n    SourceAddress = IpAddress \n// WHITELIST START\n| extend RuleName = \u0027Non Domain Controller Active Directory Replication\u0027\n| join kind=leftouter (_GetWatchlist(\u0027WizardCyberAnalyticalRulesTuning\u0027)\n    )\n    on RuleName\n| project-away RuleName, RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not((TicketIDs contains \"2589565\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3017916\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3017946\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3018016\" and isnotempty(Tuning01)) and set_has_element(Tuning01, Account))\n| where not((TicketIDs contains \"3017908\" and isnotempty(Tuning01)) and set_has_element(Tuning01, Account))\n| where not((TicketIDs contains \"2201364\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3021817\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3021821\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3021820\" and isnotempty(Tuning01)) and set_has_element(Tuning01, AccountCustomEntity))\n| where not((TicketIDs contains \"3036929\" and isnotempty(Tuning01)) and Account  == Tuning01.[0])\n| project-away Tuning*, TicketIDs\n// WHITELIST END",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess",
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1003",
+                                                                "T1207"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "b9d2eebc-5dcb-4888-8165-900db44443ab",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "HostCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.2"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

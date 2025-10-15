@@ -1,0 +1,98 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/141237d9-79d7-4470-9dc6-c87992e4b283\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/141237d9-79d7-4470-9dc6-c87992e4b283\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "User Being Added to an AD Local Security Group - [WC-BASE]",
+                                             "description":  "A new user is added to the group with permissions",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "SecurityEvent\n| where TargetAccount != \"Builtin\\\\IIS_IUSRS\"\n| where EventID == 4732\n| distinct\n    TimeGenerated,\n    Computer,\n    EventID,\n    Activity,\n    MemberName,\n    PrivilegeList,\n    SubjectAccount,\n    TargetAccount,\n    TargetDomainName\n| extend CustomEntity = strcat(\n                            \"Time Generated: \",\n                            TimeGenerated,\n    \"\\n Computer  : \",\n                            Computer,\n                            \"\\n Activity : \",\n                            Activity, \n                            \"\\n Initiated by:  : \",\n                            SubjectAccount, \n                            \"\\n Affected Group: : \",\n                            TargetAccount,\n                            \"\\n  Member Name: : \",\n                            MemberName \n                        )",
+                                             "queryFrequency":  "PT30M",
+                                             "queryPeriod":  "PT30M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT1H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "CustomEntity":  "CustomEntity"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "SecurityGroup",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "DistinguishedName",
+                                                                                                  "columnName":  "TargetAccount"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "SubjectAccount"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "Computer"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

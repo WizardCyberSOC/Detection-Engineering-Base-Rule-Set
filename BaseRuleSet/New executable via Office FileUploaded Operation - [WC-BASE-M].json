@@ -1,0 +1,110 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/24aed1ea-038f-414e-9403-f6768858fcc3\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/24aed1ea-038f-414e-9403-f6768858fcc3\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "New executable via Office FileUploaded Operation - [WC-BASE-M]",
+                                             "description":  "Identifies when executable file types are uploaded to Office services such as SharePoint and OneDrive.\nList currently includes \u0027exe\u0027, \u0027inf\u0027, \u0027gzip\u0027, \u0027cmd\u0027, \u0027bat\u0027 file extensions.\nAdditionally, identifies when a given user is uploading these files to another users workspace.\nThis may be indication of a staging location for malware or other malicious activity.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "// a threshold can be enabled, see commented line below for PrevSeenCount\nlet threshold = 2;\nlet uploadOp = \u0027FileUploaded\u0027;\n// Extensions that are interesting. Add/Remove to this list as you see fit\nlet execExt = dynamic([\u0027exe\u0027, \u0027inf\u0027, \u0027gzip\u0027, \u0027cmd\u0027, \u0027bat\u0027]);\nlet starttime = 8d;\nlet endtime = 1h;\nlet AlertTable = \nOfficeActivity\n| where TimeGenerated \u003e= ago(endtime)\n// Limited to File Uploads due to potential noise, comment out the Operation statement below to include any operation type\n// Additional, but potentially noisy operation types that include Uploads and Downloads can be included by adding the following - Operation contains \"upload\" or Operation contains \"download\"\n| where Operation =~ uploadOp\n| where SourceFileExtension has_any (execExt)\n| project\n    TimeGenerated,\n    OfficeId,\n    OfficeWorkload,\n    RecordType,\n    Operation,\n    UserType,\n    UserKey,\n    UserId,\n    ClientIP,\n    UserAgent,\n    Site_Url,\n    SourceRelativeUrl,\n    SourceFileName\n| join kind= leftanti (\n    OfficeActivity\n    | where TimeGenerated between (ago(starttime) .. ago(endtime))\n    | where Operation =~ uploadOp\n    | where SourceFileExtension has_any (execExt)\n    | summarize\n        SourceRelativeUrl = make_set(SourceRelativeUrl),\n        UserId = make_set(UserId),\n        PrevSeenCount = count()\n        by SourceFileName\n    // To exclude previous matches when only above a specific count, change threshold above and uncomment the line below\n    //| where PrevSeenCount \u003e threshold\n    | mvexpand SourceRelativeUrl, UserId\n    | extend SourceRelativeUrl = tostring(SourceRelativeUrl), UserId = tostring(UserId)\n    )\n    on SourceFileName, SourceRelativeUrl, UserId\n| extend SiteUrlUserFolder = tolower(split(Site_Url, \u0027/\u0027)[-2])\n| extend UserIdUserFolderFormat = tolower(replace(\u0027@|\\\\.\u0027, \u0027_\u0027, UserId))\n// identify when UserId is not a match to the specific site url personal folder reference\n| extend UserIdDiffThanUserFolder = iff(Site_Url has \u0027/personal/\u0027 and SiteUrlUserFolder != UserIdUserFolderFormat, true, false)\n| summarize\n    TimeGenerated = make_list(TimeGenerated),\n    StartTime = min(TimeGenerated),\n    EndTime = max(TimeGenerated),\n    UserAgents = make_list(UserAgent),\n    OfficeIds = make_list(OfficeId),\n    SourceRelativeUrls = make_list(SourceRelativeUrl),\n    FileNames = make_list(SourceFileName)\n    by\n    OfficeWorkload,\n    RecordType,\n    Operation,\n    UserType,\n    UserKey,\n    UserId,\n    ClientIP,\n    Site_Url,\n    SiteUrlUserFolder,\n    UserIdUserFolderFormat,\n    UserIdDiffThanUserFolder\n| extend\n    timestamp = StartTime,\n    AccountCustomEntity = UserId,\n    IPCustomEntity = ClientIP,\n    URLCustomEntity = Site_Url;\nlet GetUserDevice = DeviceEvents\n| where TimeGenerated \u003e ago(24h)\n| extend InitiatingProcessAccountUpn = tolower(InitiatingProcessAccountUpn)\n| join kind=inner AlertTable on $left.InitiatingProcessAccountUpn == $right.AccountCustomEntity\n| summarize count() by UserDeviceID = DeviceId,AccountCustomEntity\n| order by count_ desc \n| take 1;\nlet GetOnboardedDevice = DeviceInfo\n| where TimeGenerated \u003e ago(24h)\n| join kind=inner GetUserDevice on $left.DeviceId == $right.UserDeviceID\n| where OnboardingStatus == \"Onboarded\"\n| project OnboardedDeviceID = DeviceId,AccountCustomEntity,OnboardingStatus\n| take 1;\nAlertTable\n| join kind=leftouter GetOnboardedDevice on $left.AccountCustomEntity == $right.AccountCustomEntity\n| where OfficeWorkload == \"SharePoint\" or OnboardingStatus != \"Onboarded\"",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P8D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl",
+                                                             "LateralMovement",
+                                                             "Execution"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1105",
+                                                                "T1080",
+                                                                "T0863",
+                                                                "T1204"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "d722831e-88f5-4e25-b106-4ef6e29f8c13",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "URLCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "File",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "FileNames"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

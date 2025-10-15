@@ -1,0 +1,110 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/c0c89a84-fdff-4ed4-a443-405ad0af56ef\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/c0c89a84-fdff-4ed4-a443-405ad0af56ef\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Correlation: Phish Delivered Followed by an Anomalous Sign-In - [WC-BASE]",
+                                             "description":  "Identify when a user has received a phishing email, clicked on a URL within it, and subsequently performed a successful sign-in from a location that hasn\u0027t been seen before for the user in the last 5 days.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let ZappedEmail = EmailPostDeliveryEvents\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where ActionType == \"Spam ZAP\" or ActionType == \"Phish ZAP\"\r\n    | distinct NetworkMessageId;\r\nlet PhishEmail = EmailEvents\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where ThreatTypes == \"Phish\"\r\n    | distinct NetworkMessageId;\r\nlet PhishEntity = PhishEmail\r\n    | union ZappedEmail;\r\nlet PhishEmailURLClick = UrlClickEvents\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | join kind=inner PhishEntity on NetworkMessageId\r\n    | project ClickedURL= Url, PhishEmailNID=NetworkMessageId,AccountUpn;\r\nlet PhishEmailDetails = EmailEvents\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | join kind=inner PhishEmailURLClick on $left.NetworkMessageId == $right.PhishEmailNID,$left.RecipientEmailAddress == $right.AccountUpn\r\n    | project-away NetworkMessageId\r\n    | where not(OrgLevelPolicy contains \"Phishing Simulation\")\r\n    | where not(OrgLevelPolicy contains \"Sender address list (Safe sender / Blocked sender)\")\r\n    | where not(UserLevelPolicy contains \"Sender address list (Safe sender / Blocked sender)\")\r\n    | where not(SenderFromAddress contains \"knowbe4\")\r\n    | where not(SenderFromDomain contains \"knowbe4\")\r\n    | where not(InternetMessageId contains \"knowbe4\")\r\n    | where SenderFromAddress !in (\"dse@eumail.docusign.net\", \"dse_na2@docusign.net\", \"dse_na3@docusign.net\")\r\n    | extend EmailDeliveryTime = TimeGenerated\r\n    | join kind=leftouter EmailAttachmentInfo on $left.PhishEmailNID == $right.NetworkMessageId\r\n    | join kind=leftouter EmailPostDeliveryEvents on $left.PhishEmailNID == $right.NetworkMessageId\r\n    | summarize Attachments = make_set(FileName), ClickedURLs = make_set(ClickedURL)\r\n        by\r\n        EmailDeliveryTime,\r\n        SenderFromAddress,\r\n        RecipientEmailAddress,\r\n        PhishEmailNID,\r\n        Subject,\r\n        UrlCount,\r\n        SenderIPv4,\r\n        ConfidenceLevel,\r\n        ThreatTypes,\r\n        ActionType\r\n    | extend PhishingEmailDetails = strcat(\r\n                                    \"Email received: \",\r\n                                    tostring(EmailDeliveryTime), \r\n                                    \"\\n Email subject: \",\r\n                                    tostring(Subject), \r\n                                    \"\\n Email Network Message ID: \",\r\n                                    tostring(PhishEmailNID),\r\n                                    \"\\n Email Recipient: \",\r\n                                    tostring(RecipientEmailAddress), \r\n                                    \"\\n Email sender: \",\r\n                                    tostring(SenderFromAddress),\r\n                                    \"\\n Sender\u0027s IP: \",\r\n                                    tostring(SenderIPv4),\r\n                                    \"\\n URLs count: \",\r\n                                    tostring(UrlCount),\r\n                                    \"\\n Clicked URLs: \",\r\n                                    tostring(ClickedURLs),\r\n                                    \"\\n Attachments: \",\r\n                                    tostring(Attachments),\r\n                                    \"\\n Confidence level: \",\r\n                                    tostring(ConfidenceLevel),\r\n                                    \"\\n Threat Type: \",\r\n                                    tostring(ThreatTypes),\r\n                                    \"\\n ZAP Type: \",\r\n                                    tostring(ActionType)\r\n                                );\r\nlet KnownLocations = SigninLogs\r\n    | where TimeGenerated between(ago(14d) .. ago(1h)) // ADJUST SECOND PARAMETER DEPENEDING ON RULE FREQUENCY\r\n    | where ResultType == 0\r\n    | extend LocationDetail = strcat(Location, \"-\", LocationDetails.state)\r\n    | summarize UserKnownLocation = make_set(LocationDetail) by UserPrincipalName;\r\nlet IPManagedAttempts = SigninLogs\r\n    | union AADNonInteractiveUserSignInLogs\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\r\n    | distinct IPAddress;\r\nlet AnomalousSignIn = SigninLogs\r\n    | join kind=leftouter KnownLocations on UserPrincipalName\r\n    | join kind=inner PhishEmailDetails on $left.UserPrincipalName == $right.RecipientEmailAddress\r\n    | where ResultType == 0\r\n    | where TimeGenerated \u003e ago(1h) // CHANGE IT DEPENDING ON RULE FREQUENCY\r\n    | where tostring(parse_json(DeviceDetail).trustType) == \"\"\r\n    | where isnotempty(Location)\r\n    | where isnotempty(LocationDetails.state )\r\n    | extend State = iff(isempty(LocationDetails.state), \"Null\", LocationDetails.state)\r\n    | extend AnomalousLocationDetail = strcat(Location, \"-\", State)\r\n    | where not(UserKnownLocation has (AnomalousLocationDetail))\r\n    | extend AnomalousSignInTime = TimeGenerated;\r\nAnomalousSignIn\r\n| extend AnomalousSignInTime = format_datetime(AnomalousSignInTime, \u0027yyyy-MM-dd HH\u0027)\r\n| project\r\n    AnomalousSignInTime,\r\n    UserPrincipalName,\r\n    AnomalousLocationDetail,\r\n    UserKnownLocation,\r\n    DeviceDetail,\r\n    AppDisplayName,\r\n    Status,\r\n    AuthenticationRequirement,\r\n    IPAddress,\r\n    PhishingEmailDetails,\r\n    RiskEventTypes,\r\n    RiskEventTypes_V2,\r\n    UserAgent\r\n| summarize\r\n    AnomalousLocationLatestSignin = arg_max(AnomalousSignInTime, *),\r\n    UserKnownLocations = make_set(UserKnownLocation), \r\n    UsedDevices = make_set(DeviceDetail),\r\n    UsedApps = make_set(AppDisplayName),\r\n    SigninStatuses = make_set(Status),\r\n    AuthRequirements = make_set(AuthenticationRequirement),\r\n    PhishEmailsCustomEntity = make_set(PhishingEmailDetails),\r\n    RiskEventV1 = make_set(RiskEventTypes),\r\n    RiskEventV2= make_set(RiskEventTypes_V2),\r\n    UserAgents = make_set(UserAgent)\r\n    by UserPrincipalName, AnomalousLocationDetail, AnomalousIP = IPAddress\r\n| project-away\r\n    AuthenticationRequirement,\r\n    Status,\r\n    AppDisplayName,\r\n    DeviceDetail,\r\n    UserKnownLocation,\r\n    PhishingEmailDetails\r\n| join kind=leftanti IPManagedAttempts on $left.AnomalousIP == $right.IPAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess",
+                                                             "CredentialAccess",
+                                                             "ResourceDevelopment"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078",
+                                                                "T1566",
+                                                                "T1557",
+                                                                "T1111",
+                                                                "T1586",
+                                                                "T1539"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "P3D",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+                                                                   "LocationDetails":  "AnomalousLocationDetail",
+                                                                   "UserAgents":  "UserAgent"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "AnomalousIP"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "UsedDevices"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

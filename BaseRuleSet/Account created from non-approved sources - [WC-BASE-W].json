@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/d273b4e3-7b5d-42d9-ac59-6b0fb1e7ed8b\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/d273b4e3-7b5d-42d9-ac59-6b0fb1e7ed8b\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Account created from non-approved sources - [WC-BASE-W]",
+                                             "description":  "This query looks for account being created from a domain that is not regularly seen in a tenant.\n  Attackers may attempt to add accounts from these sources as a means of establishing persistant access to an environment.\n  Created accounts should be investigated to ensure they were legitimated created.\n  Ref: https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-user-accounts#short-lived-accounts",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let core_domains = (SigninLogs\n    | where TimeGenerated \u003e ago(7d)\n    | where ResultType == 0\n    | extend domain = tolower(split(UserPrincipalName, \"@\")[1])\n    | summarize by tostring(domain));\nlet alternative_domains = (SigninLogs\n    | where TimeGenerated \u003e ago(7d)\n    | where isnotempty(AlternateSignInName)\n    | where ResultType == 0\n    | extend domain = tolower(split(AlternateSignInName, \"@\")[1])\n    | summarize by tostring(domain));\nAuditLogs\n| where TimeGenerated \u003e ago(1h)\n| where OperationName =~ \"Add User\"\n| extend AddingUser = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\n| extend AddingSPN = tostring(parse_json(tostring(InitiatedBy.app)).servicePrincipalName)\n| extend AddedBy = iif(isnotempty(AddingUser), AddingUser, AddingSPN)\n| extend UserAdded = tostring(TargetResources[0].userPrincipalName)\n| extend Domain = tolower(split(UserAdded, \"@\")[1])\n| where Domain !in (core_domains) and Domain !in (alternative_domains)\n| project-away AddingUser\n| project-reorder TimeGenerated, UserAdded, Domain, AddedBy\n| where Identity \u003c\u003e \"CPIM Service\"\n| where Identity \u003c\u003e \"Microsoft B2B Admin Worker\"\n// WHITELIST START\n| extend RuleName = \u0027Account created from non-approved sources\u0027\n| join kind=leftouter (_GetWatchlist(\u0027WizardCyberAnalyticalRulesTuning\u0027)\n) on RuleName\n| project-away RuleName,RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not(  (TicketIDs contains \"3017949\" and isnotempty(Tuning01)) and Tuning01.[0] == Domain )\n| project-away Tuning*,TicketIDs\n// WHITELIST END\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P7D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1136"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "99d589fa-7337-40d7-91a0-c96d0c4fa437",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AddedBy"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserAdded"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

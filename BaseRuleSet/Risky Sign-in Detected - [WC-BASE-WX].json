@@ -1,0 +1,99 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/3ecb22ed-fe50-4006-ac55-11b2c5562b33\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/3ecb22ed-fe50-4006-ac55-11b2c5562b33\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Risky Sign-in Detected - [WC-BASE-WX]",
+                                             "description":  "This rule detects sign-ins that have been flagged as risky by Entra ID Protection.\nExtended functionality: This rule uses a custom table derived from a logic app to get a deeper understanding of the user\u0027s sign-in baseline.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let IPManagedAttempts = SigninLogs\r\n    | union AADNonInteractiveUserSignInLogs\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\r\n    | distinct IPAddress;\r\nlet IncidentCreated =SecurityIncident\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where Owner contains \"@wizardcyber.com\" and Owner !contains \"soc@wizardcyber.com\"\r\n    | mv-expand AlertIds\r\n    | extend AlertID = tostring(AlertIds)\r\n    | distinct AlertID;\r\nlet RiskySignInAlert = SecurityAlert\r\n    | where TimeGenerated \u003e ago(3h)\r\n    | where AlertName contains \"Risky Sign-in Detected - [WC-BASE-\"\r\n    | extend parsed = parse_json(Entities)\r\n    | mv-expand parsed\r\n    | where parsed.Type == \"ip\"\r\n    | extend RiskySignInIPAddress = tostring(parsed.Address)\r\n    | extend RiskySignInIPSubnet = iff(\r\n                                   indexof(RiskySignInIPAddress, \":\") != -1,  // If colon exists, it\u0027s IPv6\r\n                                   trim(\" \", substring(RiskySignInIPAddress, 0, indexof(RiskySignInIPAddress, \":\", indexof(RiskySignInIPAddress, \":\") + 1))),\r\n                                   trim(\" \", substring(RiskySignInIPAddress, 0, indexof(RiskySignInIPAddress, \".\", indexof(RiskySignInIPAddress, \".\") + 1)))\r\n                               )\r\n    | distinct RiskySignInIPAddress, RiskySignInIPSubnet, SystemAlertId\r\n    | join kind=inner IncidentCreated on $left.SystemAlertId == $right.AlertID;\r\nlet ImpossibleTravelAlert =SecurityAlert\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where AlertName contains \"Impossible travel\"\r\n    | extend parsed = parse_json(Entities)\r\n    | mv-expand parsed\r\n    | where parsed.Type == \"ip\"\r\n    | extend ImpossibleTravelIPAddress = tostring(parsed.Address)\r\n    | distinct ImpossibleTravelIPAddress, SystemAlertId\r\n    | join kind=inner IncidentCreated on $left.SystemAlertId == $right.AlertID;\r\nlet IdentityProtectionAlerts = SecurityAlert\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where ProviderName == \"IPC\"\r\n    | extend parsed = parse_json(Entities)\r\n    | mv-expand parsed\r\n    | where parsed.Type == \"ip\"\r\n    | extend IPCIPAddress = tostring(parsed.Address)\r\n    | distinct IPCIPAddress, SystemAlertId\r\n    | join kind=inner IncidentCreated on $left.SystemAlertId == $right.AlertID;\r\nlet RiskyUsers = AADUserRiskEvents\r\n    | where TimeGenerated \u003e ago(1h)\r\n    | summarize\r\n        min(TimeGenerated),\r\n        make_set(RiskEventType),\r\n        make_set(RiskLevel),\r\n        make_set(RiskState),\r\n        make_set(RiskDetail),\r\n        make_set(AdditionalInfo)\r\n        by Type = \"UserRiskEvents\", UserPrincipalName, IpAddress, tostring(Location)\r\n    | project-reorder\r\n        min_TimeGenerated,\r\n        UserPrincipalName,\r\n        IpAddress,\r\n        Location,\r\n        set_AdditionalInfo,\r\n        set_RiskEventType,\r\n        set_RiskLevel,\r\n        set_RiskDetail,\r\n        set_RiskState\r\n    | join kind=leftanti IPManagedAttempts on $left.IpAddress == $right.IPAddress\r\n    | join kind=leftanti RiskySignInAlert on $left.IpAddress == $right.RiskySignInIPAddress\r\n    | join kind=leftanti ImpossibleTravelAlert on $left.IpAddress == $right.ImpossibleTravelIPAddress\r\n    | join kind=leftanti IdentityProtectionAlerts on $left.IpAddress == $right.IPCIPAddress\r\n    | extend IPAddress = IpAddress\r\n    | extend LocationDetails = Location\r\n    | project-away IpAddress, Location;\r\nlet RiskySignins =SigninLogs\r\n    | where TimeGenerated \u003e ago(1h)\r\n    | where RiskEventTypes != \"[]\" or RiskEventTypes != \"[]\"\r\n    | summarize\r\n        min(TimeGenerated),\r\n        make_set(ResultType),\r\n        make_set(ResultDescription),\r\n        make_set(Status),\r\n        make_set(RiskEventTypes),\r\n        make_set(RiskEventTypes_V2)\r\n        by\r\n        Type = \"Signinlogs\",\r\n        UserPrincipalName,\r\n        IPAddress,\r\n        tostring(LocationDetails),\r\n        tostring(DeviceDetail)\r\n    | join kind=leftanti IPManagedAttempts on $left.IPAddress == $right.IPAddress\r\n    | join kind=leftanti RiskySignInAlert on $left.IPAddress == $right.RiskySignInIPAddress\r\n    | join kind=leftanti ImpossibleTravelAlert on $left.IPAddress == $right.ImpossibleTravelIPAddress\r\n    | join kind=leftanti IdentityProtectionAlerts on $left.IPAddress == $right.IPCIPAddress;\r\nlet RiskTable =  RiskySignins\r\n    | extend UserPrincipalName = tolower(UserPrincipalName)\r\n    | union (\r\n        RiskyUsers\r\n        | extend UserPrincipalName = tolower(UserPrincipalName)\r\n        | join kind=leftanti RiskySignins on UserPrincipalName\r\n        );\r\nRiskTable\r\n| join kind=leftouter UsersInfo_CL on $left.UserPrincipalName == $right.UserPrincipalName_s\r\n| extend LocationDetail = strcat(parse_json(LocationDetails).countryOrRegion, \"-\", parse_json(LocationDetails).state)\r\n| extend DeviceOS = tostring(parse_json(DeviceDetail).operatingSystem)\r\n| extend IPSubnet = iff(\r\n                        indexof(IPAddress, \":\") != -1,  // If colon exists, it\u0027s IPv6\r\n                        trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \":\", indexof(IPAddress, \":\") + 1))),\r\n                        trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \".\", indexof(IPAddress, \".\") + 1)))\r\n                    )\r\n| where not(FamiliarLocations_s has LocationDetail and FamiliarIPSubnets_s has IPSubnet and FamiliarDevices_s has DeviceOS)\r\n| join kind=leftanti RiskySignInAlert on $left.IPSubnet == $right.RiskySignInIPSubnet\r\n// WHITELIST START\r\n| extend RuleName = \u0027Risky Sign-in Detected\u0027\r\n| join kind=leftouter (_GetWatchlist(\u0027WizardCyberAnalyticalRulesTuning\u0027)\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017890\" and isnotempty(Tuning01)) and UserPrincipalName !endswith Tuning01.[0] )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Case":  "Type",
+                                                                   "LocationDetails":  "LocationDetails"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceDetail"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

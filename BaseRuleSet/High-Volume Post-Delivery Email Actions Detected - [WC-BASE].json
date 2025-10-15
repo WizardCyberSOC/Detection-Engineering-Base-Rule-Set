@@ -1,0 +1,68 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/41b45115-6efe-4006-b165-ed2d1df94505\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/41b45115-6efe-4006-b165-ed2d1df94505\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "High-Volume Post-Delivery Email Actions Detected - [WC-BASE]",
+                                             "description":  "This alert identifies instances of high-volume post-delivery email actions that may indicate a response to a phishing campaign, malicious delivery, or bulk remediation effort.\nThe detection surfaces:\n\tâ€¢ Manual remediation actions (e.g., \"Soft delete\") from the EmailPostDeliveryEvents table.\n\tâ€¢ Administrative actions (e.g., move to inbox, junk, quarantine, delete) flagged via Microsoft Defender security alerts from the SecurityAlert table.\nThese actions could include deletion, junking, or restoring messages and are often initiated in response to a security incident.\nInvestigation steps are provided to guide analysts through the Defender portal to review who initiated the action, what was done, and why.",
+                                             "severity":  "Informational",
+                                             "enabled":  true,
+                                             "query":  "let DetectThroughPostDeliveryActions = \r\nEmailPostDeliveryEvents\r\n| where TimeGenerated \u003e ago(30m)\r\n| where Action contains \"Soft delete\"\r\n| where ActionType contains \"Manual Remediation\"\r\n| summarize DeletedEmailsCount = count() by bin(TimeGenerated,30m)\r\n| where DeletedEmailsCount \u003e 50\r\n| extend InvestigationSteps = strcat(\r\n    \"1) Go to the customer\u0027s Defender portal\", \"\\n\",\r\n    \"2) Go to Investigation \u0026 Submission \u003e Actions \u0026 Submissions \u003e Action Center\", \"\\n\",\r\n    \"3) Go to the History Tab\", \"\\n\",\r\n    \"4) Review the submitted action with the type of \\\"Soft delete\\\" that was approved at the time of the alert generation.\", \"\\n\",\r\n    \"5) From there, you can see the deleted emails count, the initiator, and the reason provided for the deletion\");\r\nlet DetectionThroughSecurityAlerts = \r\nSecurityAlert\r\n| where TimeGenerated \u003e ago(30m)\r\n| where AlertName == \"Administrative action submitted by an Administrator\"\r\n| where ProviderName == \"OATP\"\r\n| extend  EmailsCount = toint(parse_json(Entities)[0].MailCount)\r\n| summarize arg_min(TimeGenerated,*) by EmailsCount,AlertLink,AlertName,ProviderName\r\n| extend InvestigationSteps = strcat(\r\n    \"1) Go to the customer\u0027s Defender portal\", \"\\n\",\r\n    \"2) Go to Investigation \u0026 Submission \u003e Actions \u0026 Submissions \u003e Action Center\", \"\\n\",\r\n    \"3) Go to the History Tab\", \"\\n\",\r\n    \"4) Review the submitted action that was performed at the time of the alert generation.\", \"\\n\",\r\n    \"5) From there, you can see the deleted emails count, the initiator, and the reason provided for the action\")\r\n| project TimeGenerated,AlertName,ProviderName,StartTime,EndTime,EmailsCount,AlertLink,InvestigationSteps\r\n| where EmailsCount \u003e 150;\r\nDetectThroughPostDeliveryActions\r\n| union DetectionThroughSecurityAlerts\r\n",
+                                             "queryFrequency":  "PT30M",
+                                             "queryPeriod":  "PT30M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,103 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/7471d269-7fa8-4996-b127-dbcd0a50964f\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/7471d269-7fa8-4996-b127-dbcd0a50964f\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Attempt to bypass conditional access rule in Microsoft Entra ID - [WC-BASE-M]",
+                                             "description":  "Identifies an attempt to Bypass conditional access rule(s) in Microsoft Entra ID.\nThe ConditionalAccessStatus column value details if there was an attempt to bypass Conditional Access\nor if the Conditional access rule was not satisfied (ConditionalAccessStatus == 1).\nReferences:\nhttps://docs.microsoft.com/azure/active-directory/conditional-access/overview\nhttps://docs.microsoft.com/azure/active-directory/reports-monitoring/concept-sign-ins\nhttps://docs.microsoft.com/azure/active-directory/reports-monitoring/reference-sign-ins-error-codes\nConditionalAccessStatus == 0 // Success\nConditionalAccessStatus == 1 // Failure\nConditionalAccessStatus == 2 // Not Applied\nConditionalAccessStatus == 3 // unknown",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 10; // Modify this threshold value to reduce false positives based on your environment\nlet aadFunc = (tableName: string) {\n    table(tableName)\n    | where TimeGenerated \u003e ago(1d)\n    | where ConditionalAccessStatus == 1 or ConditionalAccessStatus =~ \"failure\"\n    | mv-apply CAP = parse_json(ConditionalAccessPolicies) on (\n        project ConditionalAccessPoliciesName = CAP.displayName, result = CAP.result\n        | where result =~ \"failure\"\n        )\n    | extend\n        DeviceDetail = todynamic(DeviceDetail),\n        Status = todynamic(Status),\n        LocationDetails = todynamic(LocationDetails)\n    | extend OS = DeviceDetail.operatingSystem, Browser = DeviceDetail.browser\n    | extend\n        State = tostring(LocationDetails.state),\n        City = tostring(LocationDetails.city),\n        Region = tostring(LocationDetails.countryOrRegion)\n    | extend\n        StatusCode = tostring(Status.errorCode),\n        StatusDetails = tostring(Status.additionalDetails)\n    | extend Status = strcat(StatusCode, \": \", ResultDescription)\n    | summarize\n        StartTime = min(TimeGenerated),\n        EndTime = max(TimeGenerated),\n        Status = make_list(Status, 10),\n        StatusDetails = make_list(StatusDetails, 50),\n        IPAddresses = make_list(IPAddress, 100),\n        IPAddressCount = dcount(IPAddress),\n        CorrelationIds = make_list(CorrelationId, 100),\n        ConditionalAccessPoliciesName = make_list(ConditionalAccessPoliciesName, 100)\n        by\n        UserPrincipalName,\n        AppDisplayName,\n        tostring(Browser),\n        tostring(OS),\n        City,\n        State,\n        Region,\n        Type\n    | where IPAddressCount \u003e threshold and StatusDetails !has \"MFA successfully completed\"\n    | mv-expand IPAddresses, Status, StatusDetails, CorrelationIds\n    | extend Status = strcat(Status, \" \", StatusDetails)\n    | summarize\n        IPAddresses = make_set(IPAddresses, 100),\n        Status = make_set(Status, 10),\n        CorrelationIds = make_set(CorrelationIds, 100),\n        ConditionalAccessPoliciesName = make_set(ConditionalAccessPoliciesName, 100)\n        by\n        StartTime,\n        EndTime,\n        UserPrincipalName,\n        AppDisplayName,\n        tostring(Browser),\n        tostring(OS),\n        City,\n        State,\n        Region,\n        IPAddressCount,\n        Type\n    | extend\n        timestamp = StartTime,\n        Name = tostring(split(UserPrincipalName, \u0027@\u0027, 0)[0]),\n        UPNSuffix = tostring(split(UserPrincipalName, \u0027@\u0027, 1)[0])\n};\nlet aadSignin = aadFunc(\"SigninLogs\");\nlet aadNonInt = aadFunc(\"AADNonInteractiveUserSignInLogs\");\nlet ManagedAttempts = SigninLogs\n    | union AADNonInteractiveUserSignInLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\n    | distinct IPAddress;\nlet alerttable = union isfuzzy=true aadSignin, aadNonInt;\nlet KnownCountries = SigninLogs\n| where TimeGenerated between (ago(14d) ..ago(1d) )\n| where ResultType == 0\n| where isnotempty( Location)\n| summarize UserKnownLocations = make_set(Location) by UserPrincipalName;\nalerttable\n| mv-expand IPs = IPAddresses\n| extend IPs = tostring(IPs)\n| join kind= leftanti ManagedAttempts on $left.IPs == $right.IPAddress\n| join kind=leftouter KnownCountries on UserPrincipalName\n| project-away UserPrincipalName1\n| where not( Type == \"AADNonInteractiveUserSignInLogs\" and (UserKnownLocations has Region))",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "3af9285d-bb98-4a35-ad29-5ea39ba0c628",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Location":  "Region",
+                                                                   "Status":  "Status"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Name"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "UPNSuffix",
+                                                                                                  "columnName":  "UPNSuffix"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddresses"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "OS"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.5"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

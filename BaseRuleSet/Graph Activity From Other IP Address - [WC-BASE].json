@@ -1,0 +1,118 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/71148e62-93a4-4799-8ffb-9df6fdfe5902\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/71148e62-93a4-4799-8ffb-9df6fdfe5902\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Graph Activity From Other IP Address - [WC-BASE]",
+                                             "description":  "MS Graph Activity is coming from a different IP Address to the IP Address used for signing in. All relevant entities should have been pulled through for investigating.\n\nThis alert relies on the following tables:\n\nMicrosoftGraphActivityLogs\nAADServicePrincipalSignInLogs\nAADManagedIdentitySignInLogs\nIdentityInfo",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let MSIPs = _GetWatchlist(\"MSPublicIPsV2\")\r\n| project Subnet = SearchKey, FirstOctet = toint(split(SearchKey, \".\")[0]);\r\nlet alerttable = \r\nMicrosoftGraphActivityLogs\r\n| project\r\n    TimeGenerated,\r\n    RequestId,\r\n    ApiVersion,\r\n    RequestMethod,\r\n    ResponseStatusCode,\r\n    ActivityIpAdd = IPAddress,\r\n    UserAgent,\r\n    RequestUri,\r\n    Roles,\r\n    AppId,\r\n    Wids,\r\n    SignInActivityId,\r\n    GraphLocation = Location\r\n| join kind=inner (union AADServicePrincipalSignInLogs, AADManagedIdentitySignInLogs, IdentityInfo\r\n    | project\r\n        ConditionalAccessPolicies,\r\n        ConditionalAccessStatus,\r\n        ServicePrincipalCredentialKeyId,\r\n        SignInIpAddress = IPAddress,\r\n        UniqueTokenIdentifier,\r\n        Type,\r\n        AccountUPN,\r\n        AADLocation = Location\r\n    )\r\n    on $left.SignInActivityId == $right.UniqueTokenIdentifier\r\n| where ActivityIpAdd != SignInIpAddress and SignInIpAddress != \"\";\r\nlet subnetCheck = alerttable\r\n    | extend IP = tostring(ActivityIpAdd)\r\n    | extend FirstOctet = toint(split(IP, \".\")[0])\r\n    | join kind=leftouter MSIPs on FirstOctet\r\n    | extend IsInSubnet = ipv4_is_in_range(IP, Subnet)\r\n    | summarize IsInSubnet = max(toint(IsInSubnet)) by IP;\r\n  alerttable\r\n  | join kind=leftouter subnetCheck on $left.ActivityIpAdd == $right.IP\r\n  | where IsInSubnet  = tobool( IsInSubnet)\r\n  | where IsInSubnet != 1",
+                                             "queryFrequency":  "PT2H",
+                                             "queryPeriod":  "PT2H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Mailbox",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "MailboxPrimaryAddress",
+                                                                                                  "columnName":  "AccountUPN"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ActivityIpAdd"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SignInIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "AppId",
+                                                                                                  "columnName":  "AppId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "RequestUri"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

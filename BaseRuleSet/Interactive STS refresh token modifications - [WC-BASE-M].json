@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/4e768fe7-042c-4de4-879f-565eca3a9223\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/4e768fe7-042c-4de4-879f-565eca3a9223\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Interactive STS refresh token modifications - [WC-BASE-M]",
+                                             "description":  "This will show Active Directory Security Token Service (STS) refresh token modifications by Service Principals and Applications other than DirectorySync. Refresh tokens are used to validate identification and obtain access tokens.\nThis event is most often generated when legitimate administrators troubleshoot frequent AAD user sign-ins but may also be generated as a result of malicious token extensions. Confirm that the activity is related to an administrator legitimately modifying STS refresh tokens and check the new token validation time period for high values.\nFor in-depth documentation of AAD Security Tokens, see https://docs.microsoft.com/azure/active-directory/develop/security-tokens.\nFor further information on AuditLogs please see https://docs.microsoft.com/azure/active-directory/reports-monitoring/reference-audit-activities.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let auditLookback = 1h;\nlet ManagedAttempts = SigninLogs\n    | union AADNonInteractiveUserSignInLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\"\n        or tostring(parse_json(DeviceDetail_string).trustType) != \"\"\n        or DeviceDetail_dynamic contains \"PII Removed\"\n        or DeviceDetail_string contains \"PII Removed\"\n    | distinct IPAddress;\nlet NonManagedUsers = SigninLogs\n| where TimeGenerated \u003e ago(7d)\n| join kind=leftanti ManagedAttempts on IPAddress\n| where ResultType !in (\"50126\",\"50053\")\n| distinct UserPrincipalName = tolower(UserPrincipalName);\nAuditLogs\n| where TimeGenerated \u003e ago(auditLookback)\n| where OperationName has \u0027StsRefreshTokenValidFrom\u0027\n| where TargetResources[0].modifiedProperties != \u0027[]\u0027\n| where TargetResources[0].modifiedProperties !has \u0027DirectorySync\u0027\n| extend TargetResourcesModProps = TargetResources[0].modifiedProperties\n| mv-expand TargetResourcesModProps\n| where tostring(TargetResourcesModProps.displayName) =~ \u0027StsRefreshTokensValidFrom\u0027\n| extend InitiatingUserOrApp = iff(isnotempty(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))\n| where InitiatingUserOrApp !in (\u0027Microsoft Cloud App Security\u0027)\n| extend targetUserOrApp = TargetResources[0].userPrincipalName\n| extend eventName = tostring(TargetResourcesModProps.displayName)\n| extend oldStsRefreshValidFrom = todatetime(parse_json(tostring(TargetResourcesModProps.oldValue))[0])\n| extend newStsRefreshValidFrom = todatetime(parse_json(tostring(TargetResourcesModProps.newValue))[0])\n| extend tokenMinutesAdded = datetime_diff(\u0027minute\u0027, newStsRefreshValidFrom, oldStsRefreshValidFrom)\n| extend tokenMinutesRemaining = datetime_diff(\u0027minute\u0027, TimeGenerated, newStsRefreshValidFrom)\n| project-reorder Result, AADOperationType\n| extend InitiatingIpAddress = iff(isnotempty(InitiatedBy.user.ipAddress), tostring(InitiatedBy.user.ipAddress), tostring(InitiatedBy.app.ipAddress))\n| extend\n    timestamp = TimeGenerated,\n    AccountCustomEntity = InitiatingUserOrApp,\n    IPCustomEntity = InitiatingIpAddress\n| join kind=leftanti ManagedAttempts on $left.IPCustomEntity == $right.IPAddress\n| extend AccountCustomEntity = tolower(AccountCustomEntity)\n| where AccountCustomEntity contains \"@\"\n| join kind=inner  NonManagedUsers on $left.AccountCustomEntity == $right.UserPrincipalName",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1550"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "4696e072-aca8-4a4f-bf05-89fddc5ac3c9",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  null,
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "TargetEntity":  "targetUserOrApp"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

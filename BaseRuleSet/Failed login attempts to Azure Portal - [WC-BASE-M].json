@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/ac274b59-3858-4d79-a1ea-7f9114ddd9be\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/ac274b59-3858-4d79-a1ea-7f9114ddd9be\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Failed login attempts to Azure Portal - [WC-BASE-M]",
+                                             "description":  "Identifies failed login attempts in the Azure Active Directory SigninLogs to the Azure Portal.  Many failed logon \nattempts or some failed logon attempts from multiple IPs could indicate a potential brute force attack.  \nThe following are excluded due to success and non-failure results:\nReferences: https://docs.microsoft.com/azure/active-directory/reports-monitoring/reference-sign-ins-error-codes\n0 - successful logon\n50125 - Sign-in was interrupted due to a password reset or password registration entry.\n50140 - This error occurred due to \u0027Keep me signed in\u0027 interrupt when the user was signing-in.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let failureCountThreshold = 10;\nlet successCountThreshold = 1;\nlet authenticationWindow = 20m;\nlet ManagedAttempts = SigninLogs\n| union AADNonInteractiveUserSignInLogs\n| where TimeGenerated \u003e ago(14d)\n| where  isnotempty(tostring( parse_json(DeviceDetail_dynamic.deviceId)))\n| distinct IPAddress;\nSigninLogs\n| where TimeGenerated \u003e ago(1h)\n| extend OS = DeviceDetail.operatingSystem, Browser = DeviceDetail.browser\n| extend\n    StatusCode = tostring(Status.errorCode),\n    StatusDetails = tostring(Status.additionalDetails)\n| extend State = tostring(LocationDetails.state), City = tostring(LocationDetails.city)\n| where AppDisplayName contains \"Azure Portal\"\n// Split out failure versus non-failure types\n| extend FailureOrSuccess = iff(ResultType in (\"0\", \"50125\", \"50140\", \"70043\", \"70044\"), \"Success\", \"Failure\")\n// added â¤µ\n| summarize arg_max(TimeGenerated, *) by bin(TimeGenerated, 1m), ResultType\n| summarize\n    StartTimeUtc = min(TimeGenerated),\n    EndTimeUtc = max(TimeGenerated),\n    IPAddress = makeset(IPAddress),\n    makeset(OS),\n    makeset(Browser),\n    makeset(City), \n    makeset(ResultType),\n    FailureCount = countif(FailureOrSuccess == \"Failure\"),\n    SuccessCount = countif(FailureOrSuccess == \"Success\") \n    by\n    bin(TimeGenerated, authenticationWindow),\n    UserDisplayName,\n    UserPrincipalName,\n    AppDisplayName\n| where FailureCount \u003e= failureCountThreshold and SuccessCount \u003e= successCountThreshold\n| mvexpand IPAddress\n| extend IPAddress = tostring(IPAddress)\n| extend\n    timestamp = StartTimeUtc,\n    AccountCustomEntity = UserPrincipalName,\n    IPCustomEntity = IPAddress\n| join kind=leftanti ManagedAttempts on IPAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110",
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "223db5c1-1bf8-47d8-8806-bed401b356a4",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "P1D",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

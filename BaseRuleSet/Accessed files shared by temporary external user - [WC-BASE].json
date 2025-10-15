@@ -1,0 +1,82 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/1b788c61-3959-432a-9909-73f590c9a4d4\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/1b788c61-3959-432a-9909-73f590c9a4d4\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Accessed files shared by temporary external user - [WC-BASE]",
+                                             "description":  "This detection identifies an external user is added to a Team or Teams chat\nand shares a files which is accessed by many users (\u003e10) and the users is removed within short period of time. This might be\nan indicator of suspicious activity.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let fileAccessThrehold = 10;\nOfficeActivity\n | where OfficeWorkload =~ \"MicrosoftTeams\"\n | where Operation =~ \"MemberAdded\"\n | extend UPN = tostring(parse_json(Members)[0].UPN)\n | where UPN contains (\"#EXT#\")\n | project TimeAdded=TimeGenerated, Operation, UPN, UserWhoAdded = UserId, TeamName\n | join kind = inner(\n                       OfficeActivity\n                       | where OfficeWorkload =~ \"MicrosoftTeams\"\n                       | where Operation =~ \"MemberRemoved\"\n                       | extend UPN = tostring(parse_json(Members)[0].UPN)\n                       | where UPN contains (\"#EXT#\")\n                       | project TimeDeleted=TimeGenerated, Operation, UPN, UserWhoDeleted = UserId, TeamName\n                     ) on UPN\n | where TimeDeleted \u003e TimeAdded\n | join kind=inner \n                   (\n                   OfficeActivity\n                   | where RecordType == \"SharePointFileOperation\"\n                   | where SourceRelativeUrl has \"Microsoft Teams Chat Files\"\n                   | where Operation == \"FileUploaded\"\n                   | join kind = inner \n                                       (\n                                       OfficeActivity\n                                       | where RecordType == \"SharePointFileOperation\"\n                                       | where Operation  == \"FileAccessed\"\n                                       | where SourceRelativeUrl has \"Microsoft Teams Chat Files\"\n                                       | summarize FileAccessCount = count() by OfficeObjectId\n                                       | where FileAccessCount \u003e fileAccessThrehold\n                                       ) on $left.OfficeObjectId == $right.OfficeObjectId\n                   )on $left.UPN == $right.UserId\n | extend timestamp=TimeGenerated, AccountCustomEntity = UserWhoAdded",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Collection",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1530",
+                                                                "T1199"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "bff058b2-500e-4ae5-bb49-a5b1423cbd5b",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "FileAccessCount":  "FileAccessCount"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

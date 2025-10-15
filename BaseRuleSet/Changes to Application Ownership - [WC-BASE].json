@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/8faa1467-66b6-4ce5-8a93-2f7f464c5000\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/8faa1467-66b6-4ce5-8a93-2f7f464c5000\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Changes to Application Ownership - [WC-BASE]",
+                                             "description":  "Detects changes to the ownership of an appplicaiton.\n  Monitor these changes to make sure that they were authorized.\n  Ref: https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-applications#new-owner",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = SigninLogs\n    | union AADNonInteractiveUserSignInLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where isnotempty(DeviceDetail_dynamic.deviceId) or isnotempty( parse_json(DeviceDetail_string).deviceId)\n    | distinct IPAddress;\nlet NonManagedUsers = SigninLogs\n| where TimeGenerated \u003e ago(7d)\n| join kind=leftanti ManagedAttempts on IPAddress\n| where ResultType !in (\"50126\",\"50053\")\n| distinct UserPrincipalName = tolower(UserPrincipalName);\nAuditLogs\n| where TimeGenerated \u003e ago(1h)\n| where Category =~ \"ApplicationManagement\"\n| where OperationName =~ \"Add owner to application\"\n| extend appName = tostring(parse_json(tostring(InitiatedBy.app)).displayName)\n| extend UPN = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\n| extend UpdatedBy = iif(isnotempty(appName), appName, UPN)\n| extend mod_props = TargetResources[0].modifiedProperties\n| extend AddedUser = TargetResources[0].userPrincipalName\n| mv-expand mod_props\n| where mod_props.displayName =~ \"Application.DisplayName\"\n| extend AppName = tostring(parse_json(tostring(mod_props.newValue)))\n| extend IPAddress = tostring(parse_json(tostring(InitiatedBy.user)).ipAddress) \n| project-reorder TimeGenerated, OperationName, AppName, AddedUser, UpdatedBy\n| where UpdatedBy != \"Power Virtual Agents Service\"\n| where UpdatedBy contains \"@\"\n| extend UpdatedBy = tolower(UpdatedBy)\n| join kind=inner NonManagedUsers on $left.UpdatedBy == $right.UserPrincipalName\n| join kind=leftanti ManagedAttempts on IPAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "PrivilegeEscalation"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "cc5780ce-3245-4bba-8bc1-e9048c2257ce",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UpdatedBy"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AppName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

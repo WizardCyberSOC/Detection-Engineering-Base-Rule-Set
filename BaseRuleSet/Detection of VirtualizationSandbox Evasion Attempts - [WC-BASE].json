@@ -1,0 +1,79 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/b9b7a2c4-1d2e-4854-885d-6cdef7bcb172\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/b9b7a2c4-1d2e-4854-885d-6cdef7bcb172\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Detection of Virtualization/Sandbox Evasion Attempts - [WC-BASE]",
+                                             "description":  "This rule identifies potential attempts to evade detection through virtualization or sandbox environments, which are often utilized by adversaries to avoid execution in sandboxed or virtualized security analysis setups.\n\nThe rule focuses on detecting common Linux and Unix commands used to identify virtualization environments, such as systemd-detect-virt or querying system information via dmidecode. Additionally, it searches for specific indicators of virtualization platforms like Oracle, VirtualBox, VMWare, and Parallels.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let OnboardedDevices =\r\nDeviceInfo\r\n| where TimeGenerated \u003e ago(14d)\r\n| where OnboardingStatus contains \"Onboarded\"\r\n| distinct DeviceName;\r\nlet virtualizationCommands = dynamic([\r\n    \"systemd-detect-virt\",\r\n    \"dmidecode\",\r\n    \"egrep\",\r\n    \"grep\"\r\n]);\r\nlet virtualizationKeywords = dynamic([\r\n    \"Oracle\", \"VirtualBox\", \"VMWare\", \"Parallels\"\r\n]);\r\nDeviceEvents\r\n| where TimeGenerated \u003e ago(1h)\r\n| where InitiatingProcessFileName in (\"sh\", \"bash\", \"zsh\", \"cmd.exe\", \"powershell.exe\")\r\n| where ProcessCommandLine has_any (virtualizationCommands)\r\n    or (ProcessCommandLine has_any (virtualizationKeywords)\r\n        and ProcessCommandLine has \"dmidecode\")\r\n| sort by TimeGenerated desc\r\n| extend DeviceName = tolower(DeviceName)\r\n| join kind=leftanti OnboardedDevices on DeviceName\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion",
+                                                             "Discovery"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1497"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

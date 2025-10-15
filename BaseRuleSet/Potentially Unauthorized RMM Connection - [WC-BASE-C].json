@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/94c6c20e-3568-4cfb-92c1-3da4bdd95a94\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/94c6c20e-3568-4cfb-92c1-3da4bdd95a94\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Potentially Unauthorized RMM Connection - [WC-BASE-C]",
+                                             "description":  "Detects potentially unauthorized remote monitoring and management (RMM) software connections originating from non-whitelisted devices or processes. The rule correlates known RMM vendor names with process execution and excludes explicitly allowed systems and RMM tools to reduce false positives. This may indicate misuse of RMM tools for persistence, lateral movement, or unauthorized remote access.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let RMMSoftware = externaldata(RMMSoftware: string)[@\"https://raw.githubusercontent.com/cyb3rmik3/Hunting-Lists/main/rmm-software.csv\"] with (format=\"csv\", ignoreFirstRecord=True);\r\nlet INCLDevices = datatable(excludeddev :string)  // Add as many devices you would like to detect\r\n [\"DeviceName1\",\r\n  \"DeviceName2\",\r\n  \"DeviceName3\"];\r\nlet INCLRMM = datatable(excludeddev :string)  // Add as many RMM you would like to detect\r\n[\"RMM1\",\r\n  \"RMM2\",\r\n  \"RMM3\"];\r\nlet Timeframe = 300d; // Choose the best timeframe for your investigation\r\nDeviceProcessEvents\r\n    | where TimeGenerated \u003e ago(Timeframe)\r\n    | where ProcessVersionInfoCompanyName has_any (RMMSoftware)\r\n    | where (DeviceName in ([\u0027INCLDevices\u0027]) or FileName in ([\u0027INCLRMM\u0027]))\r\n    | project TimeGenerated, DeviceName, ActionType, FileName, FolderPath, ProcessVersionInfoCompanyName, ProcessVersionInfoProductName, ProcessCommandLine, AccountName, InitiatingProcessAccountName, InitiatingProcessFileName, InitiatingProcessCommandLine",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1219"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "File",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "FileName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "InitiatingProcessAccountName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

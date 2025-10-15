@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId(\u0027Microsoft.OperationalInsights/workspaces/providers\u0027, parameters(\u0027workspace\u0027), \u0027Microsoft.SecurityInsights\u0027),\u0027/alertRules/28a02490-d157-4638-8e14-b883ee11d10f\u0027)]",
+                          "name":  "[concat(parameters(\u0027workspace\u0027),\u0027/Microsoft.SecurityInsights/28a02490-d157-4638-8e14-b883ee11d10f\u0027)]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Honeypot Threat Intelligence (TI) Data - [WC-BASE-W]",
+                                             "description":  "Deception is an active defense strategy designed to mislead attackers through the use of traps, lures, decoys, and other tactics. Its purpose is to increase the attackersâ€™ costs and reduce the defendersâ€™ workload. The objective is to gather actionable Threat Intelligence (TI) and utilize this intelligence in our detection processes. The provided KQL sample extracts Honeypot TI from Sentinel UEBA associated with your Entra Tenant.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = SigninLogs\r\n    | union AADNonInteractiveUserSignInLogs\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where isnotempty(DeviceDetail_dynamic.deviceId) or isnotempty(tostring(parse_json(DeviceDetail_string).deviceId))\r\n    | distinct IPAddress;\r\nBehaviorAnalytics\r\n| where TimeGenerated \u003e ago(1h)\r\n| where EventSource == \"Azure AD\"\r\n| where tostring(DevicesInsights.ThreatIntelIndicatorType) has \"HoneypotAccess\"\r\n| summarize arg_max(TimeGenerated, *) by SourceIPAddress\r\n| where ActivityType != \"FailedLogOn\"\r\n// WHITELIST START\r\n| extend RuleName = \u0027Honeypot Threat Intelligence (TI) Data\u0027\r\n| join kind=leftouter (_GetWatchlist(\u0027WizardCyberAnalyticalRulesTuning\u0027)\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017890\" and isnotempty(Tuning01)) and UserPrincipalName !endswith Tuning01.[0] )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1046"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
