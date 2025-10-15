@@ -1,0 +1,100 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b51cc48e-20ec-4d8b-a3ae-57aaa9258786')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b51cc48e-20ec-4d8b-a3ae-57aaa9258786')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Correlate Unfamiliar sign-in properties \u0026 atypical travel alerts - [WC-BASE-M]",
+                                             "description":  "The combination of an Unfamiliar sign-in properties alert and an Atypical travel alert about the same user within a +10m or -10m window is considered a high severity incident.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let TimeDeltaInMinutes = 10;\r\nlet IncidentsAlertIDs =SecurityIncident\r\n| where TimeGenerated \u003e ago(2h)\r\n| where Owner contains \"@wizardcyber.com\" and Owner !contains \"soc@wizardcyber.com\"\r\n| mv-expand AlertIds\r\n| extend AlertID = tostring(AlertIds)\r\n| distinct AlertID;\r\nlet TicketCreated =\r\n  SecurityAlert\r\n    | where TimeGenerated \u003e ago(2h)\r\n    | where ProductName =~ \"Azure Active Directory Identity Protection\"\r\n    | where AlertName =~ \"Atypical travel\"\r\n    | mv-expand Entity = todynamic(Entities)\r\n    | where Entity.Type =~ \"account\"\r\n    | extend AadTenantId = tostring(Entity.AadTenantId)\r\n    | extend AadUserId = tostring(Entity.AadUserId)\r\n    | join kind=inner (\r\n        IdentityInfo\r\n        | distinct AccountTenantId, AccountObjectId, AccountUPN, AccountDisplayName\r\n        | extend UserName = AccountDisplayName\r\n        | extend UserAccount = AccountUPN\r\n        | where isnotempty(AccountDisplayName) and isnotempty(UserAccount)\r\n        | project AccountTenantId, AccountObjectId, UserAccount, UserName\r\n        )\r\n        on\r\n        $left.AadTenantId == $right.AccountTenantId,\r\n        $left.AadUserId == $right.AccountObjectId\r\n    | extend CompromisedEntity = iff(CompromisedEntity == \"N/A\" or isempty(CompromisedEntity), UserAccount, CompromisedEntity)\r\n    | join kind=inner IncidentsAlertIDs on $left.SystemAlertId == $right.AlertID\r\n    | project UserAccount;\r\nlet Alert_UnfamiliarSignInProps = \r\n    SecurityAlert\r\n    | where TimeGenerated between (ago(2h) .. ago(1h))\r\n    | where ProductName =~ \"Azure Active Directory Identity Protection\"\r\n    | where AlertName =~ \"Unfamiliar sign-in properties\"\r\n    | mv-expand Entity = todynamic(Entities)\r\n    | where Entity.Type =~ \"account\"\r\n    | extend AadTenantId = tostring(Entity.AadTenantId)\r\n    | extend AadUserId = tostring(Entity.AadUserId)\r\n    | join kind=inner (\r\n        IdentityInfo\r\n        | distinct AccountTenantId, AccountObjectId, AccountUPN, AccountDisplayName\r\n        | extend UserName = AccountDisplayName\r\n        | extend UserAccount = AccountUPN\r\n        | where isnotempty(AccountDisplayName) and isnotempty(UserAccount)\r\n        | project AccountTenantId, AccountObjectId, UserAccount, UserName\r\n        )\r\n        on\r\n        $left.AadTenantId == $right.AccountTenantId,\r\n        $left.AadUserId == $right.AccountObjectId\r\n    | extend CompromisedEntity = iff(CompromisedEntity == \"N/A\" or isempty(CompromisedEntity), UserAccount, CompromisedEntity)\r\n    | extend Alert_UnfamiliarSignInProps_Time = TimeGenerated\r\n    | extend Alert_UnfamiliarSignInProps_Name = AlertName\r\n    | extend Alert_UnfamiliarSignInProps_Severity = AlertSeverity\r\n    | project\r\n        AadTenantId,\r\n        AadUserId,\r\n        AccountTenantId,\r\n        AccountObjectId,\r\n        Alert_UnfamiliarSignInProps_Name,\r\n        Alert_UnfamiliarSignInProps_Severity,\r\n        Alert_UnfamiliarSignInProps_Time,\r\n        UserAccount,\r\n        UserName\r\n;\r\nlet Alert_AtypicalTravels = \r\n    SecurityAlert\r\n    | where TimeGenerated between (ago(2h) .. ago(1h))\r\n    | where ProductName =~ \"Azure Active Directory Identity Protection\"\r\n    | where AlertName =~ \"Atypical travel\"\r\n    | mv-expand Entity = todynamic(Entities)\r\n    | where Entity.Type =~ \"account\"\r\n    | extend AadTenantId = tostring(Entity.AadTenantId)\r\n    | extend AadUserId = tostring(Entity.AadUserId)\r\n    | join kind=inner (\r\n        IdentityInfo\r\n        | distinct AccountTenantId, AccountObjectId, AccountUPN, AccountDisplayName\r\n        | extend UserName = AccountDisplayName\r\n        | extend UserAccount = AccountUPN\r\n        | where isnotempty(AccountDisplayName) and isnotempty(UserAccount)\r\n        | project AccountTenantId, AccountObjectId, UserAccount, UserName\r\n        )\r\n        on\r\n        $left.AadTenantId == $right.AccountTenantId,\r\n        $left.AadUserId == $right.AccountObjectId\r\n    | extend CompromisedEntity = iff(CompromisedEntity == \"N/A\" or isempty(CompromisedEntity), UserAccount, CompromisedEntity)\r\n    | extend Alert_AtypicalTravels_Time = TimeGenerated\r\n    | extend Alert_AtypicalTravels_Name = AlertName\r\n    | extend Alert_AtypicalTravels_Severity = AlertSeverity\r\n    | extend ExtendedProperties_json= parse_json(ExtendedProperties)\r\n    | extend CurrentLocation = tostring(ExtendedProperties_json.[\"Current Location\"])\r\n    | extend PreviousLocation = tostring(ExtendedProperties_json.[\"Previous Location\"])\r\n    | extend CurrentIPAddress = tostring(ExtendedProperties_json.[\"Current IP Address\"])\r\n    | extend PreviousIPAddress = tostring(ExtendedProperties_json.[\"Previous IP Address\"])\r\n    | project\r\n        AadTenantId,\r\n        AadUserId,\r\n        AccountTenantId,\r\n        AccountObjectId,\r\n        Alert_AtypicalTravels_Name,\r\n        Alert_AtypicalTravels_Severity,\r\n        Alert_AtypicalTravels_Time,\r\n        CurrentIPAddress,\r\n        PreviousIPAddress,\r\n        CurrentLocation,\r\n        PreviousLocation,\r\n        UserAccount,\r\n        UserName,\r\n        CompromisedEntity\r\n;\r\nAlert_UnfamiliarSignInProps\r\n| join kind=inner Alert_AtypicalTravels on UserAccount\r\n| where abs(datetime_diff('minute', Alert_UnfamiliarSignInProps_Time, Alert_AtypicalTravels_Time)) \u003c= TimeDeltaInMinutes\r\n| extend TimeDelta = Alert_UnfamiliarSignInProps_Time - Alert_AtypicalTravels_Time\r\n| project\r\n    UserAccount,\r\n    Alert_UnfamiliarSignInProps_Name,\r\n    Alert_UnfamiliarSignInProps_Severity,\r\n    Alert_UnfamiliarSignInProps_Time,\r\n    Alert_AtypicalTravels_Name,\r\n    Alert_AtypicalTravels_Severity,\r\n    Alert_AtypicalTravels_Time,\r\n    TimeDelta,\r\n    CurrentLocation,\r\n    PreviousLocation,\r\n    CurrentIPAddress,\r\n    PreviousIPAddress,\r\n    UserName\r\n| extend\r\n    UserEmailName = split(UserAccount, '@')[0],\r\n    UPNSuffix = split(UserAccount, '@')[1]\r\n| summarize\r\n    make_set(Alert_UnfamiliarSignInProps_Time),\r\n    make_set(Alert_AtypicalTravels_Time),\r\n    make_set(TimeDelta),\r\n    make_set(CurrentLocation),\r\n    make_set(PreviousLocation),\r\n    make_set(CurrentIPAddress),\r\n    make_set(PreviousIPAddress),\r\n    make_set(UserEmailName),\r\n    make_set(UPNSuffix)\r\n    by UserAccount\r\n    | join kind=leftanti TicketCreated on UserAccount",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT2H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserAccount"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "set_CurrentIPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "set_PreviousIPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  [
+                                                                              {
+                                                                                  "columnName":  "UserAccount"
+                                                                              }
+                                                                          ],
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

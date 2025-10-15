@@ -1,0 +1,107 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e6e6b3e0-187d-4fc4-8444-47a9c1e8635c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e6e6b3e0-187d-4fc4-8444-47a9c1e8635c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Account Created and Deleted in Short Timeframe - [WC-BASE]",
+                                             "description":  "Search for user principal name (UPN) events. Look for accounts created and then deleted in under 24 hours. Attackers may create an account for their use, and then remove the account when no longer needed.\nRef : https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-user-accounts#short-lived-account",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let queryfrequency = 1h;\nlet queryperiod = 1d;\nAuditLogs\n| where TimeGenerated \u003e ago(queryfrequency)\n| where OperationName =~ \"Delete user\"\n//extend UserPrincipalName = tostring(TargetResources[0].userPrincipalName)\n| extend UserPrincipalName = extract(@'([a-f0-9]{32})?(.*)', 2, tostring(TargetResources[0].userPrincipalName))\n| extend DeletedByUser = tostring(InitiatedBy.user.userPrincipalName), DeletedByIPAddress = tostring(InitiatedBy.user.ipAddress)\n| extend DeletedByApp = tostring(InitiatedBy.app.displayName)\n| project Deletion_TimeGenerated = TimeGenerated, UserPrincipalName, DeletedByUser, DeletedByIPAddress, DeletedByApp, Deletion_AdditionalDetails = AdditionalDetails, Deletion_InitiatedBy = InitiatedBy, Deletion_TargetResources = TargetResources\n| join kind=inner (\n    AuditLogs\n    | where TimeGenerated \u003e ago(queryperiod)\n    | where OperationName =~ \"Add user\"\n    | extend UserPrincipalName = tostring(TargetResources[0].userPrincipalName)\n    | project-rename Creation_TimeGenerated = TimeGenerated\n) on UserPrincipalName\n| extend TimeDelta = Deletion_TimeGenerated - Creation_TimeGenerated\n| where  TimeDelta between (time(0s) .. queryperiod)\n| extend CreatedByUser = tostring(InitiatedBy.user.userPrincipalName), CreatedByIPAddress = tostring(InitiatedBy.user.ipAddress)\n| extend CreatedByApp = tostring(InitiatedBy.app.displayName)\n| project Creation_TimeGenerated, Deletion_TimeGenerated, TimeDelta, UserPrincipalName, DeletedByUser, DeletedByIPAddress, DeletedByApp, CreatedByUser, CreatedByIPAddress, CreatedByApp, Creation_AdditionalDetails = AdditionalDetails, Creation_InitiatedBy = InitiatedBy, Creation_TargetResources = TargetResources, Deletion_AdditionalDetails, Deletion_InitiatedBy, Deletion_TargetResources\n| extend timestamp = Deletion_TimeGenerated, CustomAccountEntity = UserPrincipalName, IPCustomEntity = DeletedByIPAddress\n| where isnotempty( DeletedByUser) and isnotempty( CreatedByUser)\n| where CreatedByUser !startswith \"Sync\"",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P1D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess",
+                                                             "Persistence",
+                                                             "ResourceDevelopment"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078",
+                                                                "T1136",
+                                                                "T1585"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "bb616d82-108f-47d3-9dec-9652ea0d3bf6",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+                                                                   "CreatedBy":  "CreatedByUser",
+                                                                   "DeletedBy":  "DeletedByUser"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "CreatedByApp"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e696c637-07c3-4447-96b6-de2b5def37c2')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e696c637-07c3-4447-96b6-de2b5def37c2')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Frequent Container Scheduler Error Detection - [WC-BASE]",
+                                             "description":  "This query identifies containers in the Kubernetes scheduler that have experienced frequent errors or failures within the last hour. It first aggregates containers that have encountered more than 10 error or failure events (logged in the \"kube-scheduler\" category). Then, it correlates these containers with additional error logs for further analysis, helping to pinpoint problematic containers that may require investigation or remediation.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let ErrorContainers = AzureDiagnostics\r\n| where TimeGenerated \u003e ago(1h)\r\n| extend log_s = column_ifexists(\"log_s\",\"\")\r\n| extend pod_s = column_ifexists(\"pod_s\",\"\")\r\n| extend containerID_s = column_ifexists(\"containerID_s\",\"\")\r\n| where Category == \"kube-scheduler\"\r\n| where log_s contains \"error\" or log_s contains \"failed\"\r\n| project TimeGenerated, ResourceGroup, log_s, containerID_s, pod_s\r\n| summarize ErrorCount = count() by containerID_s\r\n| where ErrorCount \u003e 10;\r\nAzureDiagnostics\r\n| where TimeGenerated \u003e ago(1h)\r\n| extend containerID_s = column_ifexists(\"containerID_s\",\"\")\r\n| extend log_s = column_ifexists(\"log_s\",\"\")\r\n| where Category == \"kube-scheduler\"\r\n| where log_s contains \"error\" or log_s contains \"failed\"\r\n| join kind=inner ErrorContainers on containerID_s",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Impact"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1489"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "containerID_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

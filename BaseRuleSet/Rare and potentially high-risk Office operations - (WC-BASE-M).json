@@ -1,0 +1,92 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d543bc09-be12-4932-89e3-35b9d716d989')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d543bc09-be12-4932-89e3-35b9d716d989')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Rare and potentially high-risk Office operations - [WC-BASE-M]",
+                                             "description":  "Identifies Office operations that are typically rare and can provide capabilities useful to attackers.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = SigninLogs\n    | union AADNonInteractiveUserSignInLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where isnotempty(DeviceDetail_dynamic.deviceId) or isnotempty( parse_json(DeviceDetail_string).deviceId)\n    | distinct IPAddress;\nlet NonManagedUsers = SigninLogs\n| where TimeGenerated \u003e ago(7d)\n| join kind=leftanti ManagedAttempts on IPAddress\n| where ResultType !in (\"50126\",\"50053\")\n| distinct UserPrincipalName = tolower(UserPrincipalName);\nOfficeActivity\n| where TimeGenerated \u003e ago(1h)\n| where Operation in~ (\"Add-MailboxFolderPermission\", \"Set-Mailbox\", \"New-ManagementRoleAssignment\", \"New-InboxRule\", \"Set-InboxRule\", \"Set-TransportRule\")\n| where not(UserId has_any ('NT AUTHORITY\\\\SYSTEM (Microsoft.Exchange.ServiceHost)', 'NT AUTHORITY\\\\SYSTEM (w3wp)', 'devilfish-applicationaccount', 'NT AUTHORITY\\\\SYSTEM (Microsoft.Exchange.AdminApi.NetCore)'))\n| extend IPAddress = iff(\nClientIP matches regex @'^\\[[0-9a-fA-F:]+\\]:\\d+$', // Matches IPv6 with port\nreplace(@'^\\[([0-9a-fA-F:]+)\\]:\\d+$', @'\\1', tostring(ClientIP)),\niff(\nClientIP matches regex @'^\\d{1,3}(\\.\\d{1,3}){3}:\\d+$', // Matches IPv4 with port\nreplace(@'^(\\d{1,3}(\\.\\d{1,3}){3}):\\d+$', @'\\1', ClientIP),\n    'Invalid IP' // Handle case if it doesn't match either pattern\n))\n| extend\n    timestamp = TimeGenerated,\n    AccountCustomEntity = tolower(UserId),\n    IPCustomEntity = IPAddress\n| project\n    timestamp,\n    AccountCustomEntity,\n    IPCustomEntity,\n    Operation,\n    UserType,\n    OfficeWorkload,\n    ResultStatus,\n    ResultReasonType,\n    OfficeObjectId,\n    ExternalAccess,\n    OriginatingServer,\n    OrganizationName,\n    AppPoolName,\n    Parameters\n| join kind=leftanti ManagedAttempts on $left.IPCustomEntity == $right.IPAddress\n| join kind=inner  NonManagedUsers on  $left.AccountCustomEntity == $right.UserPrincipalName",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "Collection"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1098",
+                                                                "T1114",
+                                                                "T1119"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "957cb240-f45d-4491-9ba5-93430a3c08be",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

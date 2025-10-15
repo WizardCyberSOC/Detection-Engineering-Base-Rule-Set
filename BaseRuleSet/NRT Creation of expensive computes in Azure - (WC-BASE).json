@@ -1,0 +1,82 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/bdfe3f9f-9368-4673-a379-553cfd3fc2c9')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/bdfe3f9f-9368-4673-a379-553cfd3fc2c9')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "NRT",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "NRT Creation of expensive computes in Azure - [WC-BASE]",
+                                             "description":  "Identifies the creation of large size/expensive VMs (GPU or with large no of virtual CPUs) in Azure.\nAdversary may create new or update existing virtual machines sizes to evade defenses \nor use it for cryptomining purposes.\nFor Windows/Linux Vm Sizes - https://docs.microsoft.com/azure/virtual-machines/windows/sizes \nAzure VM Naming Conventions - https://docs.microsoft.com/azure/virtual-machines/vm-naming-conventions",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let tokens = dynamic([\"416\",\"208\",\"128\",\"120\",\"96\",\"80\",\"72\",\"64\",\"48\",\"44\",\"40\",\"g5\",\"gs5\",\"g4\",\"gs4\",\"nc12\",\"nc24\",\"nv12\"]);\nlet operationList = dynamic([\"microsoft.compute/virtualmachines/write\", \"microsoft.resources/deployments/write\"]);\nAzureActivity\n| where tolower(OperationNameValue) in (operationList)\n| where ActivityStatusValue == \"Accepted\" \n| where isnotempty(Properties)\n| extend vmSize = tolower(tostring(parse_json(tostring(parse_json(tostring(parse_json(tostring(parse_json(Properties).responseBody)).properties)).hardwareProfile)).vmSize))\n| where isnotempty(vmSize)\n| where vmSize has_any (tokens) \n| extend ComputerName = tostring(parse_json(tostring(parse_json(tostring(parse_json(tostring(parse_json(Properties).responseBody)).properties)).osProfile)).computerName)\n| extend clientIpAddress = tostring(parse_json(HTTPRequest).clientIpAddress)\n| project TimeGenerated, OperationNameValue, ActivityStatusValue, Caller, CallerIpAddress, ComputerName, vmSize\n| extend timestamp = TimeGenerated, AccountCustomEntity = Caller, IPCustomEntity = CallerIpAddress",
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "tactics":  [
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1578"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "56fe0db0-6779-46fa-b3c5-006082a53064",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "2.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

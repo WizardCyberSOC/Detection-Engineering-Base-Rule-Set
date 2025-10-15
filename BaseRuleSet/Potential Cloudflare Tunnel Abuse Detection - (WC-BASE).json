@@ -1,0 +1,98 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/1c3831de-2276-4101-bded-aeda6f9e9c92')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/1c3831de-2276-4101-bded-aeda6f9e9c92')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Potential Cloudflare Tunnel Abuse Detection - [WC-BASE]",
+                                             "description":  "Identifies potential instances of abuse involving the Cloudflare tunnel by correlating data from device registry events and process events. It specifically looks for activities related to the execution or configuration of the Cloudflared tunnel.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let signture_cloudfalred = \"tunnel run\";\r\nlet cloudflaredRegistryQuery =\r\n    DeviceRegistryEvents\r\n    | where ActionType contains \"RegistryValueSet\"\r\n    | where RegistryKey contains @\"HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Services\\Cloudflared\"\r\n    | where RegistryValueData contains signture_cloudfalred\r\n    | project DeviceId, TimeGenerated, ActionType, RegistryKey, RegistryValueData, DeviceName, MachineGroup, PreviousRegistryValueName;\r\nlet cloudflaredProcessQuery =\r\n    DeviceProcessEvents\r\n   // | where FolderPath contains \"cloudflared\"\r\n    | where ProcessCommandLine contains signture_cloudfalred\r\n    | extend Query2_ActionType = ActionType\r\n    | project DeviceId, TimeGenerated, ActionType, InitiatingProcessCommandLine, FolderPath, AccountName, AccountUpn, FileName, InitiatingProcessFolderPath, ProcessCommandLine;\r\n cloudflaredRegistryQuery\r\n| join kind=inner cloudflaredProcessQuery on DeviceId",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1572"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Command":  "ProcessCommandLine"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "RegistryKey",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Key",
+                                                                                                  "columnName":  "RegistryValueData"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AccountUpn"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
