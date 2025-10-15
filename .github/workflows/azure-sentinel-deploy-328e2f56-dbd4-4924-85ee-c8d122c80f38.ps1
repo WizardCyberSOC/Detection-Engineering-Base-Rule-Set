@@ -513,18 +513,50 @@ function CheckRuleExistsInSentinel($templateObject) {
         if ($templateObject.resources -and $templateObject.resources.Length -gt 0) {
             $resource = $templateObject.resources[0]
             
-            # Extract rule ID from the name pattern
-            if ($resource.name) {
+            # Extract rule ID from multiple possible locations
+            $ruleId = $null
+            
+            # Method 1: Extract from 'id' field (ARM template expression)
+            if ($resource.id) {
+                $idPattern = $resource.id
+                # Look for GUID at the end of the ARM expression: /alertRules/GUID')]
+                if ($idPattern -match "/alertRules/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Extracted rule ID from 'id' field: $ruleId"
+                }
+            }
+            
+            # Method 2: Extract from 'name' field (fallback)
+            if (-not $ruleId -and $resource.name) {
                 $namePattern = $resource.name
                 if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
                     $ruleId = $matches[1]
-                    Write-Host "[Info] Checking if rule with ID '$ruleId' already exists in Sentinel"
-                    
-                    # Try to get the rule from Sentinel
+                    Write-Host "[Info] Extracted rule ID from 'name' field: $ruleId"
+                }
+            }
+            
+            if ($ruleId) {
+                Write-Host "[Info] Checking if rule with ID '$ruleId' already exists in Sentinel"
+                
+                # Try to get the rule from Sentinel
+                try {
+                    $existingRule = Get-AzSentinelAlertRule -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -RuleId $ruleId -ErrorAction SilentlyContinue
+                    if ($existingRule) {
+                        Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel. Display Name: '$($existingRule.DisplayName)'"
+                        return $true
+                    } else {
+                        Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
+                        return $false
+                    }
+                }
+                catch {
+                    # If Az.SecurityInsights cmdlet fails, try alternative method using generic Get-AzResource
+                    Write-Host "[Warning] Az.SecurityInsights cmdlet failed, trying generic Get-AzResource. Error: $_"
                     try {
-                        $existingRule = Get-AzSentinelAlertRule -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -RuleId $ruleId -ErrorAction SilentlyContinue
+                        $resourceName = "$WorkspaceName/Microsoft.SecurityInsights/$ruleId"
+                        $existingRule = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType "Microsoft.OperationalInsights/workspaces/providers/alertRules" -Name $resourceName -ErrorAction SilentlyContinue
                         if ($existingRule) {
-                            Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel. Display Name: '$($existingRule.DisplayName)'"
+                            Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel (found via Get-AzResource)"
                             return $true
                         } else {
                             Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
@@ -532,31 +564,13 @@ function CheckRuleExistsInSentinel($templateObject) {
                         }
                     }
                     catch {
-                        # If Az.SecurityInsights cmdlet fails, try alternative method using generic Get-AzResource
-                        Write-Host "[Warning] Az.SecurityInsights cmdlet failed, trying generic Get-AzResource. Error: $_"
-                        try {
-                            $resourceName = "$WorkspaceName/Microsoft.SecurityInsights/$ruleId"
-                            $existingRule = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType "Microsoft.OperationalInsights/workspaces/providers/alertRules" -Name $resourceName -ErrorAction SilentlyContinue
-                            if ($existingRule) {
-                                Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel (found via Get-AzResource)"
-                                return $true
-                            } else {
-                                Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
-                                return $false
-                            }
-                        }
-                        catch {
-                            Write-Host "[Warning] Could not check rule existence using Get-AzResource. Error: $_"
-                            # If we can't check, assume it doesn't exist to allow deployment
-                            return $false
-                        }
+                        Write-Host "[Warning] Could not check rule existence using Get-AzResource. Error: $_"
+                        # If we can't check, assume it doesn't exist to allow deployment
+                        return $false
                     }
-                } else {
-                    Write-Host "[Warning] Could not extract rule ID from name pattern: $namePattern"
-                    return $false
                 }
             } else {
-                Write-Host "[Warning] No name property found in template resource"
+                Write-Host "[Warning] Could not extract rule ID from template"
                 return $false
             }
         } else {
@@ -575,17 +589,41 @@ function ExtractRuleIdFromJsonContent($jsonContent) {
     try {
         if ($jsonContent.resources -and $jsonContent.resources.Length -gt 0) {
             $resource = $jsonContent.resources[0]
-            if ($resource.name) {
-                # Extract GUID from the name pattern
+            $ruleId = $null
+            
+            # Method 1: Extract from 'id' field (ARM template expression)
+            if ($resource.id) {
+                $idPattern = $resource.id
+                # Look for GUID at the end of the ARM expression: /alertRules/GUID')]
+                if ($idPattern -match "/alertRules/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Successfully extracted rule ID from 'id' field: $ruleId"
+                    return $ruleId
+                }
+            }
+            
+            # Method 2: Extract from 'name' field (fallback)
+            if (-not $ruleId -and $resource.name) {
                 $namePattern = $resource.name
                 if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
-                    Write-Host "[Info] Successfully extracted rule ID from JSON content: $($matches[1])"
-                    return $matches[1]
-                } else {
-                    Write-Host "[Warning] Could not find GUID pattern in name: $namePattern"
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Successfully extracted rule ID from 'name' field: $ruleId"
+                    return $ruleId
                 }
-            } else {
-                Write-Host "[Warning] No name property found in resource"
+            }
+            
+            # Method 3: Look for any GUID pattern in the entire resource object (last resort)
+            if (-not $ruleId) {
+                $resourceJson = $resource | ConvertTo-Json -Depth 10
+                if ($resourceJson -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Successfully extracted rule ID from resource JSON pattern: $ruleId"
+                    return $ruleId
+                }
+            }
+            
+            if (-not $ruleId) {
+                Write-Host "[Warning] Could not find GUID pattern in resource"
             }
         } else {
             Write-Host "[Warning] No resources found in JSON content"
