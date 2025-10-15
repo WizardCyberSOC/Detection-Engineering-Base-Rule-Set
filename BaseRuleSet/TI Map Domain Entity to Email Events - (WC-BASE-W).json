@@ -1,0 +1,100 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/dabaadff-7e82-4b42-a311-bb68a47d584c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/dabaadff-7e82-4b42-a311-bb68a47d584c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "TI Map Domain Entity to Email Events - [WC-BASE-W]",
+                                             "description":  "This query maps any domain indicators of compromise (IOCs) from threat intelligence (TI), by searching for matches in Email Events.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let TIDomains = \r\n    ThreatIntelIndicators\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where ObservableKey == \"domain-name:value\"\r\n    | where isnotempty(ObservableValue)\r\n    | distinct DomainName = ObservableValue;\r\nEmailEvents\r\n| where TimeGenerated \u003e ago(1h)\r\n| join kind=inner TIDomains on $left.SenderFromDomain == $right.DomainName\r\n| where DeliveryAction != \"Blocked\"\r\n// WHITELIST START\r\n| extend RuleName = 'TI Map Domain Entity to Email Events'\r\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017907\" and isnotempty(Tuning01)) and SenderFromDomain == Tuning01.[0])\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Reconnaissance",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1598",
+                                                                "T1566"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "SenderEmailAddress":  "SenderFromAddress"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "RecipientEmailAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "DNS",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "DomainName",
+                                                                                                  "columnName":  "DomainName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "MailMessage",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "NetworkMessageId",
+                                                                                                  "columnName":  "NetworkMessageId"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,35 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e7a11c5f-9333-4e73-91d9-153d0a9a6712')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e7a11c5f-9333-4e73-91d9-153d0a9a6712')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "ThreatIntelligence",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "enabled":  true,
+                                             "alertRuleTemplateName":  "0dd422ee-e6af-4204-b219-f59ac172e4c6",
+                                             "description":  "This rule generates an alert when a Microsoft Threat Intelligence Indicator gets matched with your event logs. The alerts are very high fidelity.\n\nNote : It is advised to turn off any custom alert rules which match the threat intelligence indicators with the same event logs matched by this analytics to prevent duplicate alerts.",
+                                             "displayName":  "Microsoft Threat Intelligence Analytics - [WC-BASE]",
+                                             "severity":  "Medium",
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "LateralMovement"
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ]
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
