@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a2e5363a-c6ff-468e-b5d9-ece047ee8a60')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a2e5363a-c6ff-468e-b5d9-ece047ee8a60')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Dormant account activity from uncommon country - [WC-BASE-W]",
+                                             "description":  "Shows dormant accounts (not active in the last 180 days) that connect from a country for the first time and the country is uncommon in the tenant or is the first time the ISP is used.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = \r\n    SigninLogs\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | union AADNonInteractiveUserSignInLogs\r\n    | where isnotempty(DeviceDetail_dynamic.deviceId) or isnotempty(parse_json(DeviceDetail_string).deviceId)\r\n    | distinct IPAddress;\r\nBehaviorAnalytics\r\n| where TimeGenerated \u003e ago(1h)\r\n| where UsersInsights.IsDormantAccount == True\r\n| where ActivityInsights.FirstTimeUserConnectedFromCountry == True\r\n| where ActivityInsights.CountryUncommonlyConnectedFromInTenant == True \r\n    or ActivityInsights.FirstTimeConnectionViaISPInTenant == True\r\n| extend AadUserId = UsersInsights.AccountObjectID\r\n| extend Account_0_AadUserId = AadUserId\r\n| where ActivityType != \"FailedLogOn\"\r\n| join kind=leftanti ManagedAttempts on $left.SourceIPAddress == $right.IPAddress\r\n// WHITELIST START\r\n| extend RuleName = 'Dormant account activity from uncommon country'\r\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017890\" and isnotempty(Tuning01)) and UserPrincipalName !endswith Tuning01.[0] )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

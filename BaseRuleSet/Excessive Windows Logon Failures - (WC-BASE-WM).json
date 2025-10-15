@@ -1,0 +1,95 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/1fb6b468-4c23-4231-95f5-54864a422288')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/1fb6b468-4c23-4231-95f5-54864a422288')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Excessive Windows Logon Failures - [WC-BASE-WM]",
+                                             "description":  "This query identifies user accounts which has over 50 Windows logon failures today and at least 33% of the count of logon failures over the previous 7 days.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let starttime = 8d;\nlet endtime = 1d;\nlet threshold = 0.333;\nlet countlimit = 50;\nSecurityEvent\n| where TimeGenerated \u003e= ago(endtime)\n| where EventID == 4625 and AccountType =~ \"User\"\n| where IpAddress !in (\"127.0.0.1\", \"::1\")\n| summarize\n    StartTime = min(TimeGenerated),\n    EndTime = max(TimeGenerated),\n    CountToday = count()\n    by\n    EventID,\n    Account,\n    LogonTypeName,\n    SubStatus,\n    AccountType,\n    Computer,\n    WorkstationName,\n    IpAddress,\n    Process\n| join kind=leftouter (\n    SecurityEvent\n    | where TimeGenerated between (ago(starttime) .. ago(endtime))\n    | where EventID == 4625 and AccountType =~ \"User\"\n    | where IpAddress !in (\"127.0.0.1\", \"::1\")\n    | summarize CountPrev7day = count()\n        by\n        EventID,\n        Account,\n        LogonTypeName,\n        SubStatus,\n        AccountType,\n        Computer,\n        WorkstationName,\n        IpAddress\n    )\n    on\n    EventID,\n    Account,\n    LogonTypeName,\n    SubStatus,\n    AccountType,\n    Computer,\n    WorkstationName,\n    IpAddress\n| where CountToday \u003e= coalesce(CountPrev7day, 0) * threshold and CountToday \u003e= countlimit\n//SubStatus Codes are detailed here - https://docs.microsoft.com/windows/security/threat-protection/auditing/event-4625\n| extend Reason = case(\n                      SubStatus =~ '0xC000005E',\n                      'There are currently no logon servers available to service the logon request.',\n                      SubStatus =~ '0xC0000064',\n                      'User logon with misspelled or bad user account',\n                      SubStatus =~ '0xC000006A',\n                      'User logon with misspelled or bad password',\n                      SubStatus =~ '0xC000006D',\n                      'Bad user name or password',\n                      SubStatus =~ '0xC000006E',\n                      'Unknown user name or bad password',\n                      SubStatus =~ '0xC000006F',\n                      'User logon outside authorized hours',\n                      SubStatus =~ '0xC0000070',\n                      'User logon from unauthorized workstation',\n                      SubStatus =~ '0xC0000071',\n                      'User logon with expired password',\n                      SubStatus =~ '0xC0000072',\n                      'User logon to account disabled by administrator',\n                      SubStatus =~ '0xC00000DC',\n                      'Indicates the Sam Server was in the wrong state to perform the desired operation',\n                      SubStatus =~ '0xC0000133',\n                      'Clocks between DC and other computer too far out of sync',\n                      SubStatus =~ '0xC000015B',\n                      'The user has not been granted the requested logon type (aka logon right) at this machine',\n                      SubStatus =~ '0xC000018C',\n                      'The logon request failed because the trust relationship between the primary domain and the trusted domain failed',\n                      SubStatus =~ '0xC0000192',\n                      'An attempt was made to logon, but the Netlogon service was not started',\n                      SubStatus =~ '0xC0000193',\n                      'User logon with expired account',\n                      SubStatus =~ '0xC0000224',\n                      'User is required to change password at next logon',\n                      SubStatus =~ '0xC0000225',\n                      'Evidently a bug in Windows and not a risk',\n                      SubStatus =~ '0xC0000234',\n                      'User logon with account locked',\n                      SubStatus =~ '0xC00002EE',\n                      'Failure Reason: An Error occurred during Logon',\n                      SubStatus =~ '0xC0000413',\n                      'Logon Failure: The machine you are logging onto is protected by an authentication firewall. The specified account is not allowed to authenticate to the machine',\n                      strcat('Unknown reason substatus: ', SubStatus)\n                  )\n| extend WorkstationName = iff(WorkstationName == \"-\" or isempty(WorkstationName), Computer, WorkstationName)\n| project\n    StartTime,\n    EndTime,\n    EventID,\n    Account,\n    LogonTypeName,\n    SubStatus,\n    Reason,\n    AccountType,\n    Computer,\n    WorkstationName,\n    IpAddress,\n    CountToday,\n    CountPrev7day,\n    Avg7Day = round(CountPrev7day * 1.00 / 7, 2),\n    Process\n| summarize\n    StartTime = min(StartTime),\n    EndTime = max(EndTime),\n    Computer = make_set(Computer, 128),\n    sum(CountToday),\n    sum(CountPrev7day),\n    avg(Avg7Day)\n    by\n    EventID,\n    Account,\n    IpAddress,\n    LogonTypeName,\n    SubStatus,\n    Reason,\n    AccountType,\n    WorkstationName,\n    Process\n| order by sum_CountToday desc nulls last\n| extend\n    timestamp = StartTime,\n    NTDomain = tostring(split(Account, '\\\\', 0)[0]),\n    Name = tostring(split(Account, '\\\\', 1)[0]),\n    HostName = tostring(split(WorkstationName, '.', 0)[0]),\n    DnsDomain = tostring(strcat_array(array_slice(split(WorkstationName, '.'), 1, -1), '.'))\n| where not(ipv4_is_private(IpAddress))\n| where not(IpAddress == \"0.0.0.0\")\n| where not(IpAddress == \"127.0.0.1\")\n| where not(isempty(IpAddress))\n| where not(IpAddress contains \"169.254\")\n// WHITELIST START\n| extend RuleName = 'Excessive Windows Logon Failures'\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\n) on RuleName\n| project-away RuleName,RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not(  (TicketIDs contains \"3017935\" and isnotempty(Tuning01)) and (Tuning01.[0] == IpAddress or Tuning01.[1] == IpAddress)  )\n| project-away Tuning*,TicketIDs\n// WHITELIST END\n",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P8D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "2391ce61-8c8d-41ac-9723-d945b2e90720",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "P1D",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Name"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "NTDomain",
+                                                                                                  "columnName":  "NTDomain"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "HostName"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "DnsDomain",
+                                                                                                  "columnName":  "DnsDomain"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "2.0.2"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

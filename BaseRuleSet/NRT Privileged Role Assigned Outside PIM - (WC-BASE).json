@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/1c29890d-8554-4568-8cc5-460131d0908f')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/1c29890d-8554-4568-8cc5-460131d0908f')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "NRT",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "NRT Privileged Role Assigned Outside PIM - [WC-BASE]",
+                                             "description":  "Identifies a privileged role being assigned to a user outside of PIM\nRef : https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-privileged-accounts#things-to-monitor-1",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "AuditLogs\n| where Category =~ \"RoleManagement\"\n| where OperationName has \"Add member to role outside of PIM\"\n    or (LoggedByService == \"Core Directory\" and OperationName == \"Add member to role\" and Identity != \"MS-PIM\")       \n| mv-apply TargetResource = TargetResources on\n(\nwhere TargetResource.type in~ (\"User\", \"ServicePrincipal\")\n| extend Target = iff(TargetResource.type =~ \"ServicePrincipal\", tostring(TargetResource.displayName), tostring(TargetResource.userPrincipalName)),\nprops = TargetResource.modifiedProperties\n)\n| mv-apply Property = props on\n(\nwhere Property.displayName =~ \"Role.DisplayName\"\n| extend RoleName = trim('\"', tostring(Property.newValue))\n)\n| extend InitiatingUserPrincipalName = tostring(InitiatedBy.user.userPrincipalName)\n| extend InitiatingAadUserId = tostring(InitiatedBy.user.id)\n| extend InitiatingIpAddress = tostring(iff(isnotempty(InitiatedBy.user.ipAddress), InitiatedBy.user.ipAddress, InitiatedBy.app.ipAddress))\n| project TimeGenerated, OperationName, RoleName, Target, InitiatingUserPrincipalName, InitiatingAadUserId, InitiatingIpAddress, Result\n| extend TargetName = tostring(split(Target,'@',0)[0]), TargetUPNSuffix = tostring(split(Target,'@',1)[0]), InitiatorName = tostring(split(InitiatingUserPrincipalName,'@',0)[0]), InitiatorUPNSuffix = tostring(split(InitiatingUserPrincipalName,'@',1)[0])",
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "tactics":  [
+                                                             "PrivilegeEscalation",
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078",
+                                                                "T1098"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "14f6da04-2f96-44ee-9210-9ccc1be6401e",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+                                                                   "AddedRole":  "RoleName",
+                                                                   "InitiatorUPN":  "InitiatingUserPrincipalName"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Target"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "InitiatingIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.2"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

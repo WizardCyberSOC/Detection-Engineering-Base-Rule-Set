@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/690d7614-72a5-4e03-b8fc-6845fee4b0ec')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/690d7614-72a5-4e03-b8fc-6845fee4b0ec')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Potential Internal Spearphishing Detected - [WC-BASE]",
+                                             "description":  "This detection identifies potential internal spearphishing activity by flagging users within the tenant who send a high volume of phishing emails to other internal recipients. This behavior may indicate that a legitimate account has been compromised and is being used to propagate phishing attacks within the organization to harvest credentials or spread malware.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let GetTenantDomain= \r\nEmailEvents\r\n| where EmailDirection == \"Inbound\"\r\n| extend TenantDomain = tostring(split(RecipientEmailAddress,\"@\",1).[0])\r\n| summarize count() by TenantDomain\r\n| order by count_ desc \r\n| take 3;\r\nlet getphisher = \r\nEmailEvents\r\n| extend RecipientDomain =  tostring(split(RecipientEmailAddress,\"@\",1).[0])\r\n| join kind=inner GetTenantDomain on $left.RecipientDomain == $right.TenantDomain\r\n| where SenderFromDomain  == RecipientDomain\r\n| where ThreatTypes == \"Phish\"\r\n| where ConfidenceLevel contains \"High\"\r\n| where not(UserLevelPolicy contains \"Sender address list (Safe sender / Blocked sender)\")\r\n| where not(SenderFromAddress contains \"knowbe4\")\r\n| where not(SenderFromDomain contains \"knowbe4\")\r\n| where not(InternetMessageId contains \"knowbe4\")\r\n| summarize count() by SenderFromAddress\r\n| where count_ \u003e 20;\r\nEmailEvents\r\n| join kind=inner getphisher on SenderFromAddress\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "LateralMovement"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1534"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Direction":  "EmailDirection"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "SenderFromAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "MailMessage",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "NetworkMessageId",
+                                                                                                  "columnName":  "NetworkMessageId"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

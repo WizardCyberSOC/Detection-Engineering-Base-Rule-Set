@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d7de34d4-f9c5-4de2-9c83-faae3350915f')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d7de34d4-f9c5-4de2-9c83-faae3350915f')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Suspicious Process Command Involving Office Applications - [WC-BASE]",
+                                             "description":  "Detects suspicious commands executed by Microsoft Office applications that may indicate a Template Injection technique. This rule flags processes like Word, Excel, or PowerPoint that launch with command lines containing template injection indicators (e.g., ${, \u003c%=, .jsp) or non-standard file types. Such behavior may suggest macro abuse, remote template loading, or script injection.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let suspiciousKeywords = dynamic([\"\u003c%=\", \"{{\", \"${\", \"\u003c\u003c\", \"\", \"$(\", \"#{\" ]);\r\nlet suspiciousExtensions = dynamic([\".jsp\", \".php\", \".asp\", \".aspx\", \".erb\"]);\r\nlet FileNames = dynamic([\"winword.exe\", \"excel.exe\", \"powerpnt.exe\", \"outlook.exe\", \"onenote.exe\"]);\r\n// let TrustedDomains = dynamic([\"*.microsoft.com\", \"*.office.com\", \"*.sharepoint.com\"]);\r\nDeviceEvents\r\n| where InitiatingProcessFileName in (FileNames)\r\n| where ProcessCommandLine has_any (suspiciousKeywords)\r\n    or ProcessCommandLine has_any (suspiciousExtensions)\r\n    | where isnotempty( ProcessCommandLine)\r\n| where FileName \u003c\u003e \"javaw.exe\"",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1221"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "File",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "InitiatingProcessFileName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "InitiatingProcessAccountUpn"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

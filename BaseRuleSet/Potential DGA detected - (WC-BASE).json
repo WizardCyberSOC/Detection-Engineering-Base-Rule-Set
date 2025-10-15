@@ -1,0 +1,85 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/0d9b1766-d22b-402f-9617-9ec6d503358c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/0d9b1766-d22b-402f-9617-9ec6d503358c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Potential DGA detected - [WC-BASE]",
+                                             "description":  "Identifies clients with a high NXDomain count which could be indicative of a DGA (cycling through possible C2 domains\nwhere most C2s are not live). Alert is generated when a new IP address is seen (based on not being seen associated with \nNXDomain records in prior 10-day baseline period).\nThis analytic rule uses [ASIM](https://aka.ms/AboutASIM) and supports any built-in or custom source that supports the ASIM DNS schema",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let referencestarttime = 10d;\nlet referenceendtime = 1d;\nlet threshold = 100;\nlet nxDomainDnsEvents = (stime:datetime, etime:datetime) \n  {_Im_Dns(responsecodename='NXDOMAIN', starttime=stime, endtime=etime)\n  | where DnsQueryTypeName in (\"A\", \"AAAA\")\n  | where ipv4_is_match(\"127.0.0.1\", SrcIpAddr) == False\n  | where DnsQuery !contains \"/\" and  DnsQuery contains \".\"};\nnxDomainDnsEvents (stime=ago(referenceendtime) ,etime=now())\n  | extend sld = tostring(split(DnsQuery, \".\")[-2])\n  | summarize StartTimeUtc = min(TimeGenerated), EndTimeUtc = max(TimeGenerated), dcount(sld) by SrcIpAddr\n  | where dcount_sld \u003e threshold\n  // Filter out previously seen IPs\n  | join kind=leftanti (nxDomainDnsEvents (stime=ago(referencestarttime), etime=ago(referenceendtime))\n    | extend sld = tostring(split(DnsQuery, \".\")[-2])\n    | summarize dcount(sld) by SrcIpAddr\n    | where dcount_sld \u003e threshold ) on SrcIpAddr\n// Pull out sample NXDomain responses for those remaining potentially infected IPs\n| join kind = inner (nxDomainDnsEvents (stime=ago(referencestarttime), etime=now()) | summarize by DnsQuery, SrcIpAddr) on SrcIpAddr\n| summarize StartTimeUtc = min(StartTimeUtc), EndTimeUtc = max(EndTimeUtc), sampleNXDomainList=make_list(DnsQuery, 100)  by SrcIpAddr, dcount_sld\n| extend timestamp = StartTimeUtc, IPCustomEntity = SrcIpAddr",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P10D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1568",
+                                                                "T1008"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "983a6922-894d-413c-9f04-d7add0ecc307",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.3.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

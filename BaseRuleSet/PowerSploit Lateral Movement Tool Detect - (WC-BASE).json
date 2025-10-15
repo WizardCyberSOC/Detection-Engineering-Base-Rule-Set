@@ -1,0 +1,94 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/fb2ccee0-5d92-455a-a9be-62e95619630f')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/fb2ccee0-5d92-455a-a9be-62e95619630f')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "PowerSploit Lateral Movement Tool Detect - [WC-BASE]",
+                                             "description":  "PowerSploit is a collection of Microsoft PowerShell modules that can be used to aid penetration testers during all phases of an assessment.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceEvents | where ActionType == \"PowerShellCommand\"  | where ((AdditionalFields contains \"Export-PowerViewCSV\" or AdditionalFields contains \"Resolve-IPAddress\" or AdditionalFields contains \"ConvertTo-SID\" or AdditionalFields contains \"Convert-ADName\" or AdditionalFields contains \"ConvertFrom-UACValue\" or AdditionalFields contains \"Add-RemoteConnection\" or AdditionalFields contains \"Remove-RemoteConnection\" or AdditionalFields contains \"Invoke-UserImpersonation\" or AdditionalFields contains \"Invoke-RevertToSelf\" or AdditionalFields contains \"Get-DomainSPNTicket\" or AdditionalFields contains \"Invoke-Kerberoast\" or AdditionalFields contains \"Get-PathAcl\") or (InitiatingProcessCommandLine contains \"Export-PowerViewCSV\" or InitiatingProcessCommandLine contains \"Resolve-IPAddress\" or InitiatingProcessCommandLine contains \"ConvertTo-SID\" or InitiatingProcessCommandLine contains \"Convert-ADName\" or InitiatingProcessCommandLine contains \"ConvertFrom-UACValue\" or InitiatingProcessCommandLine contains \"Add-RemoteConnection\" or InitiatingProcessCommandLine contains \"Remove-RemoteConnection\" or InitiatingProcessCommandLine contains \"Invoke-UserImpersonation\" or InitiatingProcessCommandLine contains \"Invoke-RevertToSelf\" or InitiatingProcessCommandLine contains \"Get-DomainSPNTicket\" or InitiatingProcessCommandLine contains \"Invoke-Kerberoast\" or InitiatingProcessCommandLine contains \"Get-PathAcl\"))\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Execution",
+                                                             "LateralMovement",
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1059",
+                                                                "T1570",
+                                                                "T1620",
+                                                                "T1072"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AccountName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

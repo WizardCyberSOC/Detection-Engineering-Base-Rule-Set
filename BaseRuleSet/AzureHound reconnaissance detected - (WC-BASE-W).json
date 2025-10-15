@@ -1,0 +1,84 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/5d706446-ef3d-4e21-a598-1176c11b2615')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/5d706446-ef3d-4e21-a598-1176c11b2615')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "AzureHound reconnaissance detected - [WC-BASE-W]",
+                                             "description":  "This rule detects suspicious usage patterns of Microsoft Graph API that align with reconnaissance techniques used by tools such as AzureHound. It identifies entities performing high-volume enumeration of directory objects (e.g., users, groups, service principals) through a sequence of known query endpoints, indicating potential enumeration of Azure AD for privilege escalation or lateral movement mapping.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let AzureHoundGraphQueries = dynamic([\r\n    \"https:/graph.microsoft.com/version/servicePrincipals/\u003cUUID\u003e/owners\",\r\n    \"https:/graph.microsoft.com/version/groups/\u003cUUID\u003e/members\",\r\n    \"https:/graph.microsoft.com/version/groups/\u003cUUID\u003e/owners\",\r\n    \"https:/graph.microsoft.com/version/servicePrincipals/\u003cUUID\u003e/appRoleAssignedTo\",\r\n    \"https:/graph.microsoft.com/version/roleManagement/directory/roleAssignments\",\r\n    \"https:/graph.microsoft.com/version/applications/\u003cUUID\u003e/owners\",\r\n    \"https:/graph.microsoft.com/version/devices/\u003cUUID\u003e/registeredOwners\",\r\n    \"https:/graph.microsoft.com/version/organization\",\r\n    \"https:/graph.microsoft.com/version/groups\",\r\n    \"https:/graph.microsoft.com/version/servicePrincipals\",\r\n    \"https:/graph.microsoft.com/version/applications\",\r\n    \"https:/graph.microsoft.com/version/roleManagement/directory/roleDefinitions\",\r\n    \"https:/graph.microsoft.com/version/devices\",\r\n    \"https:/graph.microsoft.com/version/users\"\r\n    ]);\r\nlet PotentialMaliciousGraphCalls = materialize (\r\n    MicrosoftGraphActivityLogs\r\n    | where ingestion_time() \u003e ago(15m)\r\n    | extend ObjectId = iff(isempty(UserId), ServicePrincipalId, UserId)\r\n    | extend ObjectType = iff(isempty(UserId), \"ServicePrincipalId\", \"UserId\")\r\n    | where RequestUri !has \"microsoft.graph.delta\"\r\n    | extend NormalizedRequestUri = replace_regex(RequestUri, @'[0-9a-fA-F]{8}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{12}', @'\u003cUUID\u003e')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'\\d+$', @'\u003cUUID\u003e')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'\\/+', @'/')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'\\/(v1\\.0|beta)\\/', @'/version/')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'%23EXT%23', @'')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'\\/[a-zA-Z0-9+_.\\-]+@[a-zA-Z0-9.]+\\/', @'/\u003cUUID\u003e/')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'^\\/\u003cUUID\u003e', @'')\r\n    | extend NormalizedRequestUri = replace_regex(NormalizedRequestUri, @'\\?.*$', @'')\r\n    | summarize\r\n        GraphEndpointsCalled = make_set(NormalizedRequestUri, 1000),\r\n        IPAddresses = make_set(IPAddress)\r\n        by ObjectId, ObjectType\r\n    | project\r\n        ObjectId,\r\n        ObjectType,\r\n        IPAddresses,\r\n        MatchingQueries=set_intersect(AzureHoundGraphQueries, GraphEndpointsCalled)\r\n    | extend ConfidenceScore = round(todouble(array_length(MatchingQueries)) / todouble(array_length(AzureHoundGraphQueries)), 1)\r\n    | where ConfidenceScore \u003e 0.7);\r\nlet IPEntities = PotentialMaliciousGraphCalls\r\n    | mv-expand IPAddresses\r\n    | sort by ObjectId\r\n    | extend CurrentRowNumber=row_number(2, prev(ObjectId) != ObjectId)\r\n    | extend IPInformation = bag_pack(@\"$id\", CurrentRowNumber, \"Address\", IPAddresses, \"Type\", \"ip\")\r\n    | project ObjectId, IPInformation\r\n    | summarize IPInformation = make_set(IPInformation, 150) by ObjectId;\r\nPotentialMaliciousGraphCalls\r\n| join kind=leftouter IPEntities on ObjectId\r\n| project-away IPAddresses, *1, *2\r\n// WHITELIST START\r\n| extend RuleName = 'AzureHound reconnaissance detected'\r\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017893\" and isnotempty(Tuning01)) and ObjectId == Tuning01.[0]  )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Reconnaissance",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1595",
+                                                                "T1589",
+                                                                "T1591",
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPInformation"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
