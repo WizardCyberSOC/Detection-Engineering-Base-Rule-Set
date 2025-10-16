@@ -788,10 +788,12 @@ function ProcessDeletedFiles() {
                     $totalDeleted++
                     Write-Host "[Info] Successfully processed deletion of rule $ruleId"
                     
-                    # Remove from tracking table if it exists - handle WizardCyber path correctly
+                    # Remove from tracking table if it exists - handle path prefixes correctly
                     $fileName = $relativePath
                     if ($relativePath.StartsWith("WizardCyber/")) {
                         $fileName = $relativePath.Substring("WizardCyber/".Length)
+                    } elseif ($relativePath.StartsWith("BaseRuleSet/")) {
+                        $fileName = $relativePath.Substring("BaseRuleSet/".Length)
                     }
                     $absolutePath = Join-Path $rootDirectory $fileName
                     if ($global:updatedCsvTable.ContainsKey($absolutePath)) {
@@ -872,10 +874,12 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
             $changedFileArray | ForEach-Object {
                 $relativePath = $_.Trim()
                 if (-not [string]::IsNullOrEmpty($relativePath)) {
-                    # Handle WizardCyber path correctly - remove WizardCyber prefix if present since rootDirectory already points to WizardCyber
+                    # Handle path prefixes correctly - remove directory prefix if present since rootDirectory already points to the target directory
                     $fileName = $relativePath
                     if ($relativePath.StartsWith("WizardCyber/")) {
                         $fileName = $relativePath.Substring("WizardCyber/".Length)
+                    } elseif ($relativePath.StartsWith("BaseRuleSet/")) {
+                        $fileName = $relativePath.Substring("BaseRuleSet/".Length)
                     }
                     $absolutePath = Join-Path $rootDirectory $fileName
                     if (Test-Path $absolutePath) {
