@@ -899,12 +899,7 @@ function main() {
     LoadDeploymentConfig
 
     $existingConfigSha = $global:localCsvTablefinal[$configPath]
-    $remoteConfigSha = $remoteShaTable[$configPath]
     $modifiedConfig = ($existingConfigSha -xor $remoteConfigSha) -or ($existingConfigSha -and $remoteConfigSha -and ($existingConfigSha -ne $remoteConfigSha))
-
-    if ($remoteConfigSha) {
-        $global:updatedCsvTable[$configPath] = $remoteConfigSha
-    }
 
     # Only set fullDeploymentFlag for config changes, not for all deployments
     $fullDeploymentFlag = $modifiedConfig -or ($smartDeployment -eq "false")
@@ -922,6 +917,7 @@ function main() {
 }
 
 main
+
 
 
 
