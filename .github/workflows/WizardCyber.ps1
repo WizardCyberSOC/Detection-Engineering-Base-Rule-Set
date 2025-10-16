@@ -22,9 +22,7 @@ $githubRepository = $Env:GITHUB_REPOSITORY
 $branchName = $Env:branch
 $smartDeployment = $Env:smartDeployment
 $newResourceBranch = $branchName + "-sentinel-deployment"
-# Use the repository root for CSV path, not the specific subdirectory
-$repoRoot = $Env:directory
-$csvPath = "$repoRoot\.sentinel\tracking_table_$sourceControlId.csv"
+$csvPath = "$rootDirectory\.sentinel\tracking_table_$sourceControlId.csv"
 $configPath = "$rootDirectory\sentinel-deployment.config"
 $global:localCsvTablefinal = @{}
 $global:updatedCsvTable = @{}
@@ -144,10 +142,20 @@ function PushCsvToRepo() {
         git switch --orphan $newResourceBranch
         git commit --allow-empty -m "Initial commit on orphan branch"
         git push -u origin $newResourceBranch
-        New-Item -ItemType "directory" -Path ".sentinel"
+        # Ensure the .sentinel directory exists in the correct location
+        $sentinelDir = Split-Path $csvPath -Parent
+        if (-not (Test-Path $sentinelDir)) {
+            New-Item -ItemType "directory" -Path $sentinelDir -Force
+        }
     } else {
         git fetch > $null
         git checkout $newResourceBranch
+    }
+
+    # Ensure the .sentinel directory exists before writing the CSV
+    $sentinelDir = Split-Path $csvPath -Parent
+    if (-not (Test-Path $sentinelDir)) {
+        New-Item -ItemType "directory" -Path $sentinelDir -Force
     }
 
     Write-Output $content > $relativeCsvPath
@@ -158,26 +166,14 @@ function PushCsvToRepo() {
 }
 
 function ReadCsvToTable {
-    # Check if CSV file exists before trying to import it
-    if (-not (Test-Path $csvPath)) {
-        Write-Host "[Info] CSV tracking file does not exist yet: $csvPath"
-        return @{}
+    $csvTable = Import-Csv -Path $csvPath
+    $HashTable=@{}
+    foreach($r in $csvTable)
+    {
+        $key = AbsolutePathWithSlash $r.FileName
+        $HashTable[$key]=$r.CommitSha
     }
-    
-    try {
-        $csvTable = Import-Csv -Path $csvPath
-        $HashTable=@{}
-        foreach($r in $csvTable)
-        {
-            $key = AbsolutePathWithSlash $r.FileName
-            $HashTable[$key]=$r.CommitSha
-        }
-        return $HashTable
-    }
-    catch {
-        Write-Host "[Warning] Failed to read CSV tracking file: $csvPath. Error: $_"
-        return @{}
-    }
+    return $HashTable
 }
 
 function AttemptInvokeRestMethod($method, $url, $body, $contentTypes, $maxRetries) {
@@ -973,37 +969,25 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
 }
 
 function TryGetCsvFile {
-    Write-Host "[Debug] Checking for CSV file at: $csvPath"
-    
     if (Test-Path $csvPath) {
-        Write-Host "[Info] Found existing CSV file, reading tracking data"
         $global:localCsvTablefinal = ReadCsvToTable
         Remove-Item -Path $csvPath
         git add $csvPath
         git commit -m "Removed tracking file and moved to new sentinel created branch"
         git push origin $branchName
-    } else {
-        Write-Host "[Info] No existing CSV file found, starting with empty tracking table"
-        $global:localCsvTablefinal = @{}
     }
 
     $relativeCsvPath = RelativePathWithBackslash $csvPath
     $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
 
     if ($resourceBranchExists -eq 1) {
-        Write-Host "[Info] Resource branch exists, checking for tracking file"
         git fetch > $null
         git checkout $newResourceBranch
 
         if (Test-Path $relativeCsvPath) {
-            Write-Host "[Info] Found tracking file in resource branch, reading data"
             $global:localCsvTablefinal = ReadCsvToTable
-        } else {
-            Write-Host "[Info] No tracking file found in resource branch"
         }
         git checkout $branchName
-    } else {
-        Write-Host "[Info] No resource branch exists yet, will be created during deployment"
     }
 }
 
@@ -1015,7 +999,6 @@ function main() {
     Write-Host "[Debug] Environment Variables:"
     Write-Host "[Debug] rootDirectory: $rootDirectory"
     Write-Host "[Debug] Directory: $Directory"
-    Write-Host "[Debug] repoRoot: $repoRoot"
     Write-Host "[Debug] csvPath: $csvPath"
     Write-Host "[Debug] ChangedFiles: '$ChangedFiles'"
     Write-Host "[Debug] DeletedFiles: '$DeletedFiles'"
