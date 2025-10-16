@@ -122,9 +122,10 @@ jobs:
           $env:CHANGED_FILES = "${{ steps.changed-files.outputs.changed_files }}"
           $env:DELETED_FILES = "${{ steps.changed-files.outputs.deleted_files }}"
 
-          ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-328e2f56-dbd4-4924-85ee-c8d122c80f38.ps1
+          ${{ github.workspace }}//.github/workflows/Sandbox.ps1
 
           
+
 
 
 
