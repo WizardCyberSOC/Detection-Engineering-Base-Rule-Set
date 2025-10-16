@@ -1,0 +1,97 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/019d21ab-f1fd-4cfa-968c-cbe71a8b4543')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/019d21ab-f1fd-4cfa-968c-cbe71a8b4543')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "AWS - S3 bucket suspicious ransomware activity - [WC-BASE]",
+                                             "description":  "Suspicious S3 bucket activity indicating ransomware was detected.\nAn attacker might download all the objects in a compromised S3 bucket, encrypt them with his own key, then upload them back to the same bucket, overwriting the existing ones.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let timeframe = 1h;\nlet lookback = 2h;\n// The attacker downloads the object(s) from the compromised bucket\nlet GetObject = AWSCloudTrail\n| where TimeGenerated \u003e= ago(lookback)\n| where EventName == \"GetObject\" and isempty(ErrorCode) and isempty(ErrorMessage)\n| extend bucketName = tostring(parse_json(RequestParameters).bucketName), keyName = tostring(parse_json(RequestParameters).key)\n| project-rename StartTime = TimeGenerated;\n// Then, the attacker overwrites the same object(s) but encrypted with his own key\nlet PutObject = AWSCloudTrail\n| where TimeGenerated \u003e= ago(timeframe)\n| where EventName == \"PutObject\" and isempty(ErrorCode) and isempty(ErrorMessage)\n| extend bucketName = tostring(parse_json(RequestParameters).bucketName), keyName = tostring(parse_json(RequestParameters).key)\n| extend kmsId = tostring(parse_json(RequestParameters).[\"x-amz-server-side-encryption-aws-kms-key-id\"])\n| where tostring(kmsId) !has tostring(RecipientAccountId) and kmsId \u003c\u003e \"\";\nPutObject\n| join kind=inner \n(\n   GetObject\n)\non $left.bucketName == $right.bucketName, $left.keyName == $right.keyName\n| where TimeGenerated \u003e StartTime\n| extend UserIdentityArn = iif(isempty(UserIdentityArn), tostring(parse_json(Resources)[0].ARN), UserIdentityArn)\n| extend UserName = tostring(split(UserIdentityArn, '/')[-1])\n| extend AccountName = case( UserIdentityPrincipalid == \"Anonymous\", \"Anonymous\", isempty(UserIdentityUserName), UserName, UserIdentityUserName)\n| extend AccountName = iif(AccountName contains \"@\", tostring(split(AccountName, '@', 0)[0]), AccountName),\n  AccountUPNSuffix = iif(AccountName contains \"@\", tostring(split(AccountName, '@', 1)[0]), \"\")\n| extend timestamp = StartTime\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Impact"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1486"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "b442b9e2-5cc4-4129-a85b-a5ef38a9e5f0",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AccountName"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "UPNSuffix",
+                                                                                                  "columnName":  "AccountUPNSuffix"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "CloudAppAccountId",
+                                                                                                  "columnName":  "RecipientAccountId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,82 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2abc6272-42dc-406a-8122-d211c6abc69b')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2abc6272-42dc-406a-8122-d211c6abc69b')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Fortinet - Lateral Movement Attempt - [WC-BASE]",
+                                             "description":  "Identifies potential lateral movement by detecting SMB, RDP, or SSH traffic.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "CommonSecurityLog\r\n| where TimeGenerated \u003e ago(1h)\r\n| where DeviceVendor contains \"Fortinet\" and DeviceProduct contains \"Fortigate\"\r\n| where DestinationPort in (\"445\", \"3389\", \"22\")\r\n| where DeviceAction contains \"accept\" and Activity contains \"forward accept\"\r\n| where not( ipv4_is_private( SourceIP))\r\n| extend AcceptTime = TimeGenerated\r\n| join kind=leftouter  (CommonSecurityLog\r\n        | where DeviceAction !contains \"accept\"\r\n        | extend CloseTime = TimeGenerated)\r\n        on SourceIP,DestinationPort\r\n    | where isnull( CloseTime) or  CloseTime \u003e AcceptTime\r\n    | summarize arg_min(CloseTime,*) by SourceIP\r\n    | where (CloseTime \u003e= AcceptTime + 10m) or isnull( CloseTime)",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery",
+                                                             "LateralMovement"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1135",
+                                                                "T0867"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIP"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

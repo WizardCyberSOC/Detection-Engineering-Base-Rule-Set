@@ -1,0 +1,95 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4229a2a1-ec37-46d3-8d3b-e0355b024e56')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4229a2a1-ec37-46d3-8d3b-e0355b024e56')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "AWS - Successful brute force attack on S3 Bucket. - [WC-BASE]",
+                                             "description":  "A successful brute force attack on an S3 bucket was detected. Verify these actions, and if needed, remediate the compromise.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let timeframe = 1h;\nlet failed_attempts = AWSCloudTrail\n| where TimeGenerated \u003e= ago(timeframe)\n| where EventName == \"GetObject\" and isnotempty(ErrorMessage) and isnotempty(ErrorCode)\n| where UserIdentityAccountId == \"ANONYMOUS_PRINCIPAL\" or UserIdentityAccessKeyId \u003c\u003e RecipientAccountId\n| extend UserIdentityArn = iif(isempty(UserIdentityArn), tostring(parse_json(Resources)[0].ARN), UserIdentityArn)\n| extend UserName = tostring(split(UserIdentityArn, '/')[-1])\n| extend AccountName = case( UserIdentityPrincipalid == \"Anonymous\", \"Anonymous\", isempty(UserIdentityUserName), UserName, UserIdentityUserName)\n| extend AccountName = iif(AccountName contains \"@\", tostring(split(AccountName, '@', 0)[0]), AccountName),\n  AccountUPNSuffix = iif(AccountName contains \"@\", tostring(split(AccountName, '@', 1)[0]), \"\")\n| extend bucketName = tostring(parse_json(RequestParameters).bucketName), keyName = tostring(parse_json(RequestParameters).key)\n| summarize time_min_failed=arg_min(TimeGenerated, *), failed_keys = dcount(keyName) by RecipientAccountId, AccountName, AccountUPNSuffix, UserIdentityAccountId, SourceIpAddress, bucketName\n| where failed_keys \u003e 20;\nlet success_attempts = AWSCloudTrail\n| where TimeGenerated \u003e= ago(timeframe)\n| where EventName == \"GetObject\" and isempty(ErrorMessage) and isempty(ErrorCode)\n| where UserIdentityAccountId == \"ANONYMOUS_PRINCIPAL\" or UserIdentityAccessKeyId \u003c\u003e RecipientAccountId\n| extend UserIdentityArn = iif(isempty(UserIdentityArn), tostring(parse_json(Resources)[0].ARN), UserIdentityArn)\n| extend UserName = tostring(split(UserIdentityArn, '/')[-1])\n| extend AccountName = case( UserIdentityPrincipalid == \"Anonymous\", \"Anonymous\", isempty(UserIdentityUserName), UserName, UserIdentityUserName)\n| extend AccountName = iif(AccountName contains \"@\", tostring(split(AccountName, '@', 0)[0]), AccountName),\n  AccountUPNSuffix = iif(AccountName contains \"@\", tostring(split(AccountName, '@', 1)[0]), \"\")\n| extend bucketName = tostring(parse_json(RequestParameters).bucketName), keyName = tostring(parse_json(RequestParameters).key)\n| summarize time_min_success=arg_min(TimeGenerated, *), success_keys = dcount(keyName) by RecipientAccountId, AccountName, AccountUPNSuffix, UserIdentityAccountId, SourceIpAddress, bucketName\n| where success_keys \u003e= 1;\nfailed_attempts\n| join kind=inner success_attempts on SourceIpAddress, RecipientAccountId, AccountName, AccountUPNSuffix, UserIdentityAccountId, bucketName\n| where time_min_success \u003e time_min_failed\n| project-away keyName\n| extend timestamp = time_min_success\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1562"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "31b9e94b-0df6-4a3d-a297-3457b53c5d86",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AccountName"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "UPNSuffix",
+                                                                                                  "columnName":  "AccountUPNSuffix"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "CloudAppAccountId",
+                                                                                                  "columnName":  "RecipientAccountId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

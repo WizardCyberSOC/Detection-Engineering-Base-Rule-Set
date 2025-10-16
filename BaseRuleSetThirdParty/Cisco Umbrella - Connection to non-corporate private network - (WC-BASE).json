@@ -1,0 +1,80 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b8a74f6a-e447-44c5-b9ac-8e8c1c079728')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b8a74f6a-e447-44c5-b9ac-8e8c1c079728')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Cisco Umbrella - Connection to non-corporate private network - [WC-BASE]",
+                                             "description":  "IP addresses of broadband links that usually indicates users attempting to access their home network, for example for a remote session to a home computer.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "Cisco_Umbrella\n| where EventType == 'proxylogs'\n| where DvcAction =~ 'Allowed'\n| where UrlCategory has_any ('Dynamic and Residential', 'Personal VPN')\n| project TimeGenerated, SrcIpAddr, DstIpAddr, Identities \n",
+                                             "queryFrequency":  "PT10M",
+                                             "queryPeriod":  "PT10M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl",
+                                                             "Exfiltration"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1573",
+                                                                "T1041"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "c9b6d281-b96b-4763-b728-9a04b9fe1246",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SrcIpAddr"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.2"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

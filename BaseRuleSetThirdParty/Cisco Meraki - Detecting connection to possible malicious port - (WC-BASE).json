@@ -1,0 +1,81 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/64183881-a70f-4723-8ffd-2cb9369fc57f')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/64183881-a70f-4723-8ffd-2cb9369fc57f')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Cisco Meraki - Detecting connection to possible malicious port - [WC-BASE]",
+                                             "description":  "Cisco Meraki detecting connection to possible malicious port that was listed in the watchlist (suspiciousports.csv). Please visit the query and look for commented lines containing attack information. Additionally, investigate the incident thoroughly with all available logs, and escalate it to the relevant teams for action.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let VerySuspiciousPorts = (_GetWatchlist('suspiciousports'));// | where metadata_confidence contains \"high\" | project dest_port);\n//Source: https://github.com/mthcht/awesome-lists/blob/main/Lists/suspicious_ports_list.csv\nCiscoMeraki\n| where DstPortNumber in (VerySuspiciousPorts)\n| project TimeGenerated, SrcIpAddr, DstIpAddr, SrcPortNumber, DstPortNumber, HttpRequestMethod, Url, SrcMacAddr, NetworkProtocol, DeviceName, HostName\n//Exclusion list\n| where DstPortNumber !in (8443, 8080, 1900, 50050, 3489, 6666, 9050, 9001, 12345, 53531)\n//| where Url !startswith_cs \"https://speed.cloudflare.com\"\n| where not(DstIpAddr matches regex @\"^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.|169\\.254\\.)\")\n| sort by Url\n| extend DstPortInfo = strcat(\"https://speedguide.net/port.php?port=\", tostring(DstPortNumber))\n| summarize count(), min(TimeGenerated), max(TimeGenerated), make_set(DstIpAddr), make_set(Url) by SrcIpAddr, SrcMacAddr, DstPortNumber, DstPortInfo\n| project-reorder SrcIpAddr, SrcMacAddr, count_, DstPortNumber, DstPortInfo, set_DstIpAddr, set_Url\n| sort by count_ desc",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "P1D",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Port":  "DstPortNumber",
+                                                                   "DestinationIP":  "set_DstIpAddr"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SrcIpAddr"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,80 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/eceb55cd-93d9-49b1-a080-874ba8abe1be')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/eceb55cd-93d9-49b1-a080-874ba8abe1be')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Cisco Meraki - portscan detected - [WC-BASE]",
+                                             "description":  "Cisco Meraki portscan detected. Please visit the query and look for commented lines containing attack information. Additionally, investigate the incident thoroughly with all available logs, and escalate it to the relevant teams for action.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let PortScannedTotal = 50;\nCiscoMeraki\n| where NetworkProtocol == \"UDP\" or NetworkProtocol == \"TCP\" //change to TCP to detect TCP port scans\n| where SrcIpAddr != \"127.0.0.1\" and SrcIpAddr != \"::1\"\n| summarize PortsScanned=dcount(DstPortNumber), ConnectedPorts=make_set(DstPortNumber, 100) by SrcIpAddr, bin(TimeGenerated, 6m)\n| where PortsScanned \u003e PortScannedTotal\n//Possibly whitelist of vulnerability scanner IP's:\n| where SrcIpAddr != \"192.168.30.13\"",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1046"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT12H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "PortScanned":  "PortsScanned"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SrcIpAddr"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

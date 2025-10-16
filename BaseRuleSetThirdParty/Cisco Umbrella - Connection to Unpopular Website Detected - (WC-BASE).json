@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/7f25fa39-6615-4281-a082-06f9ebd5668c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/7f25fa39-6615-4281-a082-06f9ebd5668c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Cisco Umbrella - Connection to Unpopular Website Detected - [WC-BASE]",
+                                             "description":  "Detects first connection to an unpopular website (possible malicious payload delivery).",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let domain_lookBack= 14d;\nlet timeframe = 1d;\nlet top_million_list = Cisco_Umbrella\n| where EventType == \"proxylogs\"\n| where TimeGenerated \u003e ago(domain_lookBack) and TimeGenerated \u003c ago(timeframe)\n| extend Hostname = parse_url(UrlOriginal)[\"Host\"]\n| summarize count() by tostring(Hostname)\n| top 1000000 by count_\n| summarize make_list(Hostname);\nCisco_Umbrella\n| where EventType == \"proxylogs\"\n| where TimeGenerated \u003e ago(timeframe)\n| extend Hostname = parse_url(UrlOriginal)[\"Host\"]\n| where Hostname !in (top_million_list)\n| extend Message = \"Connect to unpopular website (possible malicious payload delivery)\"\n| project Message, SrcIpAddr, DstIpAddr,UrlOriginal, TimeGenerated\n| extend IPCustomEntity = SrcIpAddr, UrlCustomEntity = UrlOriginal\n",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl",
+                                                             "Exfiltration"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071",
+                                                                "T1041"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "75297f62-10a8-4fc1-9b2a-12f25c6f05a7",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "UrlCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.1.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

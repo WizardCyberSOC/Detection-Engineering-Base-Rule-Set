@@ -1,0 +1,68 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/40a050fd-e56b-4c20-9b38-209636275287')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/40a050fd-e56b-4c20-9b38-209636275287')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Imperva - Illegal Byte Code in Parameter Value - [WC-BASE]",
+                                             "description":  "This rule detects requests containing illegal byte code in parameter values. These illegal characters, banned by the HTTP standard, often include non-printable ASCII characters or other special characters (e.g., \u003c, \u003e, etc.). The rule identifies such requests that were not blocked by the Imperva WAF",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "ImpervaLogs\r\n| where Activity contains \"Illegal Byte Code Character in Parameter Value\"\r\n| where DeviceAction !contains \"Block\"\r\n| project TimeGenerated, Activity, Description,LogSeverity, DeviceAction,SourceIP, SourcePort, DestinationIP, DestinationPort, ServiceName, ServerGroup, ApplicationName\r\n",
+                                             "queryFrequency":  "PT6H",
+                                             "queryPeriod":  "PT6H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1190"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

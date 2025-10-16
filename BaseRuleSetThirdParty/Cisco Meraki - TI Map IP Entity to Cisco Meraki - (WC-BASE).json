@@ -1,0 +1,98 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/cf3558b9-3c84-4de4-ae53-f9aa05088461')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/cf3558b9-3c84-4de4-ae53-f9aa05088461')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Cisco Meraki - TI Map IP Entity to Cisco Meraki - [WC-BASE]",
+                                             "description":  "This query maps any IP indicators of compromise (IOCs) from threat intelligence (TI), by searching for matches in Cisco Meraki Logs.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let dt_lookBack = 1h;\nlet ioc_lookBack = 14d; // Look back 14 days for threat intelligence indicators\n// Fetch threat intelligence indicators related to IP addresses\nlet IP_Indicators = ThreatIntelIndicators\n| where TimeGenerated \u003e ago(14d)\n| distinct TIEntity = ObservableValue\n| where isnotempty(TIEntity)\n| where ipv4_is_private(TIEntity) == false and TIEntity !startswith \"fe80\" and TIEntity !startswith \"::\" and TIEntity !startswith \"127.\";\n// Perform a join between IP indicators and Cisco Meraki events\nIP_Indicators\n  // Use innerunique to keep performance fast and result set low, as we only need one match to indicate potential malicious activity that needs investigation\n  | join kind=innerunique (\n      CiscoMeraki\n      | where TimeGenerated \u003e= ago(dt_lookBack)\n      | where isnotempty(DstIpAddr)\n      | where ipv4_is_private(DstIpAddr) == false and DstIpAddr !startswith \"fe80\" and DstIpAddr !startswith \"::\" and DstIpAddr !startswith \"127.\"\n      | extend CiscoMeraki_TimeGenerated = TimeGenerated\n  )\n  on $left.TIEntity == $right.DstIpAddr\n  // Group the results by DstIpAddr and keep the Cisco Meraki event with the latest timestamp\n  | summarize CiscoMeraki_TimeGenerated = arg_max(CiscoMeraki_TimeGenerated, *) by DstIpAddr\n  // Select the desired output fields\n  | project timestamp = CiscoMeraki_TimeGenerated,TIEntity, DeviceName, SrcIpAddr, DstIpAddr, DstPortNumber, SrcPortNumber, HttpRequestMethod, SrcMacAddr, NetworkProtocol, LogType\n| where DstPortNumber != 443 //Safe Port",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "5e45930c-09b1-4430-b2d1-cc75ada0dc0f",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT8H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "DstIpAddr"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SrcIpAddr"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.4.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

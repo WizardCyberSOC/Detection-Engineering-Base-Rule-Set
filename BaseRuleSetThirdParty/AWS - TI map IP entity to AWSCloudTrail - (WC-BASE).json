@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/ebcc2931-74d8-49cf-91b1-0a652076ccd5')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/ebcc2931-74d8-49cf-91b1-0a652076ccd5')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "AWS - TI map IP entity to AWSCloudTrail - [WC-BASE]",
+                                             "description":  "Identifies a match in AWSCloudTrail from any IP IOC from TI",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let dt_lookBack = 1h; // Look back 1 hour for AWSCloudTrail logs\nlet ioc_lookBack = 14d; // Look back 14 days for threat intelligence indicators\n// Fetch threat intelligence indicators related to IP addresses\nlet IP_Indicators = ThreatIntelIndicators\n| where TimeGenerated \u003e ago(14d)\n| distinct TIEntity = ObservableValue\n| where isnotempty( TIEntity)\n| where ipv4_is_private(TIEntity) == false and  TIEntity !startswith \"fe80\" and TIEntity !startswith \"::\" and TIEntity !startswith \"127.\";\n// Perform a join between IP indicators and AWSCloudTrail logs to identify potential malicious activity\nIP_Indicators\n  // Use innerunique to keep performance fast and result set low, as we only need one match to indicate potential malicious activity that needs investigation\n  | join kind=innerunique (\n      AWSCloudTrail\n      | where TimeGenerated \u003e= ago(dt_lookBack)\n      | extend AWSCloudTrail_TimeGenerated = TimeGenerated // Rename time column for clarity\n    )\n    on $left.TIEntity == $right.SourceIpAddress\n  // Filter out logs that occurred after the expiration of the corresponding indicator\n  // Group the results by IndicatorId and SourceIpAddress, and keep the log entry with the latest timestamp\n  | summarize AWSCloudTrail_TimeGenerated = arg_max(AWSCloudTrail_TimeGenerated, *) by SourceIpAddress\n  // Select the desired output fields\n  | project AWSCloudTrail_TimeGenerated,TIEntity, EventName, EventTypeName, UserIdentityAccountId, UserIdentityPrincipalid, UserIdentityUserName, SourceIpAddress, Type\n  // Rename the timestamp field\n  | extend timestamp = AWSCloudTrail_TimeGenerated\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "f110287e-1358-490d-8147-ed804b328514",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "ObjectGuid",
+                                                                                                  "columnName":  "UserIdentityUserName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.4.2"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

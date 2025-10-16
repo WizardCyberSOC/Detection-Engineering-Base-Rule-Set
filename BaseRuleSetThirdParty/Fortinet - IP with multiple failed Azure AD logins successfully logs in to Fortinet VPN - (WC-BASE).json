@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a1e74308-a823-464d-a35a-14a3036c27d9')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a1e74308-a823-464d-a35a-14a3036c27d9')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Fortinet - IP with multiple failed Azure AD logins successfully logs in to Fortinet VPN - [WC-BASE]",
+                                             "description":  "This query creates a list of IP addresses with a number failed login attempts to AAD above a set threshold. It then looks for any successful Fortinet VPN logins from any of these IPs within the same timeframe.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = \r\nSigninLogs\r\n| where TimeGenerated \u003e ago(14d)\r\n| union AADNonInteractiveUserSignInLogs\r\n| where isnotempty( DeviceDetail_dynamic.deviceId) or isnotempty( parse_json(DeviceDetail_string).deviceId)\r\n| distinct IPAddress;\r\n// Set threshold for AAD login failures\r\nlet signin_threshold = 5;\r\nlet aadFunc = (tableName:string) {\r\n    table(tableName)\r\n    | where TimeGenerated \u003e ago(1h)\r\n    | where ResultType !in (\"0\", \"50125\", \"50140\")\r\n    | where IPAddress !in (\"127.0.0.1\", \"::1\")\r\n    | summarize count() by IPAddress\r\n    | where count_ \u003e signin_threshold\r\n    | summarize make_set(IPAddress)\r\n};\r\nlet aadSignin = aadFunc(\"SigninLogs\");\r\nlet aadNonInt = aadFunc(\"AADNonInteractiveUserSignInLogs\");\r\nlet suspicious_signins = union isfuzzy=true aadSignin, aadNonInt\r\n| summarize make_set(set_IPAddress);\r\nCommonSecurityLog\r\n| where TimeGenerated \u003e ago(1h)\r\n| where DeviceVendor contains \"Fortinet\" and DeviceProduct contains \"Fortigate\"\r\n| where Activity contains \"vpn success\"\r\n| where SourceIP in (suspicious_signins)\r\n| extend Reason = \"Multiple failed AAD logins from SourceIP\"\r\n| project TimeGenerated, Reason, SourceIP, DestinationIP, DeviceName, DeviceProduct, Activity, ApplicationProtocol\r\n| extend IPCustomEntity = SourceIP, timestamp = TimeGenerated, HostCustomEntity = DeviceName\r\n| where not( ipv4_is_private( IPCustomEntity))\r\n| join kind=leftanti ManagedAttempts on $left.IPCustomEntity == $right.IPAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

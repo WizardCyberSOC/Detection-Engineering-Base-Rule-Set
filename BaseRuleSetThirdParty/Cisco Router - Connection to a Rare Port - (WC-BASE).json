@@ -1,0 +1,69 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/cd9515b2-5db8-4a52-97d2-c622cb03cfb9')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/cd9515b2-5db8-4a52-97d2-c622cb03cfb9')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Cisco Router - Connection to a Rare Port - [WC-BASE]",
+                                             "description":  "Detects when a successful connection is made to an unusual or rare port. This rule helps identify anomalous behavior, such as port scanning or access to non-standard services that are typically not exposed. It cross-checks recent port activity against common or expected ports and flags connections made to rare ports.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let CommonPorts = CiscoRouter\r\n| where TimeGenerated between (ago(24h) .. ago(1h))\r\n| where isnotempty( DestinationPort)\r\n| where toint( DestinationPort) \u003c 1024\r\n| distinct DestinationPort;\r\nCiscoRouter\r\n| where TimeGenerated \u003e ago(1h)\r\n| where isnotempty( DestinationPort)\r\n| where toint( DestinationPort) \u003c 1024\r\n| join kind=leftanti CommonPorts on DestinationPort",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess",
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1133"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
