@@ -22,7 +22,9 @@ $githubRepository = $Env:GITHUB_REPOSITORY
 $branchName = $Env:branch
 $smartDeployment = $Env:smartDeployment
 $newResourceBranch = $branchName + "-sentinel-deployment"
-$csvPath = "$rootDirectory\.sentinel\tracking_table_$sourceControlId.csv"
+# Use the repository root for CSV path, not the specific subdirectory
+$repoRoot = $Env:directory
+$csvPath = "$repoRoot\.sentinel\tracking_table_$sourceControlId.csv"
 $configPath = "$rootDirectory\sentinel-deployment.config"
 $global:localCsvTablefinal = @{}
 $global:updatedCsvTable = @{}
@@ -156,14 +158,26 @@ function PushCsvToRepo() {
 }
 
 function ReadCsvToTable {
-    $csvTable = Import-Csv -Path $csvPath
-    $HashTable=@{}
-    foreach($r in $csvTable)
-    {
-        $key = AbsolutePathWithSlash $r.FileName
-        $HashTable[$key]=$r.CommitSha
+    # Check if CSV file exists before trying to import it
+    if (-not (Test-Path $csvPath)) {
+        Write-Host "[Info] CSV tracking file does not exist yet: $csvPath"
+        return @{}
     }
-    return $HashTable
+    
+    try {
+        $csvTable = Import-Csv -Path $csvPath
+        $HashTable=@{}
+        foreach($r in $csvTable)
+        {
+            $key = AbsolutePathWithSlash $r.FileName
+            $HashTable[$key]=$r.CommitSha
+        }
+        return $HashTable
+    }
+    catch {
+        Write-Host "[Warning] Failed to read CSV tracking file: $csvPath. Error: $_"
+        return @{}
+    }
 }
 
 function AttemptInvokeRestMethod($method, $url, $body, $contentTypes, $maxRetries) {
@@ -959,25 +973,37 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
 }
 
 function TryGetCsvFile {
+    Write-Host "[Debug] Checking for CSV file at: $csvPath"
+    
     if (Test-Path $csvPath) {
+        Write-Host "[Info] Found existing CSV file, reading tracking data"
         $global:localCsvTablefinal = ReadCsvToTable
         Remove-Item -Path $csvPath
         git add $csvPath
         git commit -m "Removed tracking file and moved to new sentinel created branch"
         git push origin $branchName
+    } else {
+        Write-Host "[Info] No existing CSV file found, starting with empty tracking table"
+        $global:localCsvTablefinal = @{}
     }
 
     $relativeCsvPath = RelativePathWithBackslash $csvPath
     $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
 
     if ($resourceBranchExists -eq 1) {
+        Write-Host "[Info] Resource branch exists, checking for tracking file"
         git fetch > $null
         git checkout $newResourceBranch
 
         if (Test-Path $relativeCsvPath) {
+            Write-Host "[Info] Found tracking file in resource branch, reading data"
             $global:localCsvTablefinal = ReadCsvToTable
+        } else {
+            Write-Host "[Info] No tracking file found in resource branch"
         }
         git checkout $branchName
+    } else {
+        Write-Host "[Info] No resource branch exists yet, will be created during deployment"
     }
 }
 
@@ -989,6 +1015,8 @@ function main() {
     Write-Host "[Debug] Environment Variables:"
     Write-Host "[Debug] rootDirectory: $rootDirectory"
     Write-Host "[Debug] Directory: $Directory"
+    Write-Host "[Debug] repoRoot: $repoRoot"
+    Write-Host "[Debug] csvPath: $csvPath"
     Write-Host "[Debug] ChangedFiles: '$ChangedFiles'"
     Write-Host "[Debug] DeletedFiles: '$DeletedFiles'"
     Write-Host "[Debug] smartDeployment: $smartDeployment"
