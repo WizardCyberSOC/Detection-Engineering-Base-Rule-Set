@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/567a9e8a-9781-4cb8-aae9-539ab6c6ec17')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/567a9e8a-9781-4cb8-aae9-539ab6c6ec17')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SentinelOne - Kill Confirmed Succesfully - [WC-BASE]",
+                                             "description":  "This SentinelOne alert will be looking at the SentinelOne_CL to find any new events showing that a kill operation has been completed.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "SentinelOne_CL\r\n| where primaryDescription_s contains \"killed the threat\"\r\n| project\r\n    TimeGenerated,\r\n    primaryDescription_s,\r\n    data_confidenceLevel_s,\r\n    data_fileContentHash_s,\r\n    data_fileDisplayName_s,\r\n    data_filePath_s,\r\n    data_threatClassification_s,\r\n    data_computerName_s,\r\n    secondaryDescription_s,\r\n    //DataFields_s,\r\n    parse_json(DataFields_s).computerName,\r\n    parse_json(DataFields_s).threatClassification,\r\n    parse_json(DataFields_s).fileDisplayName\r\n| project-rename\r\n    Computer = data_computerName_s,\r\n    ConfidenceLevel = data_confidenceLevel_s,\r\n    FileContentHash = data_fileContentHash_s,\r\n    FilePath = data_filePath_s,\r\n    FileName = data_fileDisplayName_s,\r\n    ThreatClass = data_threatClassification_s,\r\n    Description = primaryDescription_s,\r\n    ThreatClassification = DataFields_s_threatClassification,\r\n    ComputerName = DataFields_s_computerName,\r\n    DisplayName = DataFields_s_fileDisplayName\r\n| order by TimeGenerated desc",
+                                             "queryFrequency":  "PT10M",
+                                             "queryPeriod":  "PT10M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Impact"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1489"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "ComputerName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "ThreatClassification"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

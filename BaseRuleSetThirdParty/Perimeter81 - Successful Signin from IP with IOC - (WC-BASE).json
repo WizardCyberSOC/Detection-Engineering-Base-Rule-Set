@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a5ae2e14-e517-4da3-a1a0-d2076a27c74c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a5ae2e14-e517-4da3-a1a0-d2076a27c74c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Perimeter81 - Successful Signin from IP with IOC - [WC-BASE]",
+                                             "description":  "Identifies a successful login to the Perimeter81 VPN via an IP with active TI",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let IOCIPList = ThreatIntelIndicators\n  | where TimeGenerated \u003e ago(14d)\n  | where isnotempty(ObservableValue)\n  | distinct TIEntity = ObservableValue\n  | where isnotempty(TIEntity)\n  | where ipv4_is_private(TIEntity) == false and TIEntity !startswith \"fe80\" and TIEntity !startswith \"::\" and TIEntity !startswith \"127.\";\nPerimeter81_CL\n| where ip_s in (IOCIPList)\n| where eventTypeGroup_s == \"login\"\n| where eventName_s endswith \".success\"\n| summarize \n    EventCount = count(),\n    FirstSeen = min(TimeGenerated),\n    LastSeen = max(TimeGenerated),\n    GatewayIPs = make_set(gateway_ip_s),\n    GatewayDNS = make_set(gateway_dns_s),\n    Networks = make_set(network_name_s),\n    EventNames = make_set(eventName_s),\n    Devices = make_set(device_hostname_s)\n  by releasedBy_email_s, ip_s\n| where LastSeen \u003e ago(65m)",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071",
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "releasedBy_email_s"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ip_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

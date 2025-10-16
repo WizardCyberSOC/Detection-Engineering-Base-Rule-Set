@@ -1,0 +1,99 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/f838243a-43e9-46ec-ba0d-a0f0179291ad')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/f838243a-43e9-46ec-ba0d-a0f0179291ad')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Mimecast Secure Email Gateway - Attachment Protect - [WC-BASE]",
+                                             "description":  "Detect threat for mail attachment under the targeted threat protection",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "MimecastSIEM_CL| where mimecastEventId_s==\"mail_ttp_attachment\"",
+                                             "queryFrequency":  "PT5M",
+                                             "queryPeriod":  "PT5M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Reconnaissance"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1598"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "72264f4f-61fb-4f4f-96c4-635571a376c2",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "MsgId":  "MsgId_s",
+                                                                   "fileName":  "fileName_s",
+                                                                   "sha256":  "sha256_s"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "MailMessage",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Sender",
+                                                                                                  "columnName":  "Sender_s"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "Recipient",
+                                                                                                  "columnName":  "Recipient_s"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "Subject",
+                                                                                                  "columnName":  "Subject_s"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IP_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

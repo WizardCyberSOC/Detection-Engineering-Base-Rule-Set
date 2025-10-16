@@ -1,0 +1,82 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/9842b7be-e49a-4972-bc94-7ab25d35535c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/9842b7be-e49a-4972-bc94-7ab25d35535c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Perimeter81 - sporadic VPN sourcing - [WC-BASE]",
+                                             "description":  "Identifies sporadic Perimeter81 VPN events based on source IP, where in the distinct IP count represents more than half of the total events",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "Perimeter81_CL\r\n| summarize count(), min(TimeGenerated), max(TimeGenerated), dcount(ip_s), make_set(gateway_ip_s), make_set(gateway_dns_s), make_set(network_name_s), make_set(eventName_s), make_set(device_hostname_s), make_set(ip_s) by releasedBy_email_s\r\n| where count_ \u003e 10\r\n| where count_/dcount_ip_s \u003c 2//sporadic sourcing identification\r\n| where max_TimeGenerated \u003e ago(65m)",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P4D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "releasedBy_email_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

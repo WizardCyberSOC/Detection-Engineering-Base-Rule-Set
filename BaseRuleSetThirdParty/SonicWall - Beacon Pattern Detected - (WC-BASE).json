@@ -1,0 +1,80 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2ecdde99-a113-43b2-9b73-d13ab1b88515')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2ecdde99-a113-43b2-9b73-d13ab1b88515')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SonicWall - Beacon Pattern Detected - [WC-BASE]",
+                                             "description":  "Identifies patterns in the time deltas of contacts between internal and external IPs in SonicWall network data that are consistent with beaconing. Accounts for randomness (jitter) and seasonality such as working hours that may have been introduced into the beacon pattern. The lookback is set to 1h, the minimum granularity in time deltas is set to 60 seconds and the minimum number of beacons required to emit a detection is set to 100. Increase the lookback period to capture beacons with larger periodicities. The jitter tolerance is set to 0.2 - This means we account for an overall 20% deviation from the infered beacon periodicity. Seasonality is dealt with automatically using series_outliers. Note: In large environments it may be necessary to reduce the lookback period to get fast query times.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let TimeDeltaThresholdInSeconds = 60;\r\nlet TotalBeaconsThreshold = 100;\r\nCommonSecurityLog\r\n| where TimeGenerated \u003e ago(1h)\r\n| where DeviceVendor contains \"SonicWall\"\r\n| where Activity == \"Connection Opened\"\r\n| where isnotempty(SourceIP) and isnotempty(DestinationIP) and SourceIP != \"0.0.0.0\"\r\n| sort by SourceIP asc, DestinationIP asc, DestinationPort asc, TimeGenerated asc\r\n| serialize\r\n| extend nextTime = next(TimeGenerated, 1), nextSrcIP = next(SourceIP, 1), nextDstIP = next(DestinationIP, 1), nextDstPort = next(DestinationPort, 1)\r\n| extend delta = datetime_diff(\"second\", nextTime, TimeGenerated)\r\n| where SourceIP == nextSrcIP and DestinationIP == nextDstIP and DestinationPort == nextDstPort\r\n| where delta \u003e TimeDeltaThresholdInSeconds\r\n| summarize BeaconCount = count(), avgDelta = avg(delta) by SourceIP, DestinationIP, DestinationPort\r\n| where BeaconCount \u003e TotalBeaconsThreshold\r\n| where SourceIP !startswith \"208.91.112\" and DestinationIP !startswith \"208.91.112\"\r\n| where DestinationIP != \"8.8.8.8\" and DestinationIP !startswith \"20.54\" and DestinationIP !startswith \"51.104\" and DestinationIP !startswith \"20.198\" and DestinationIP !startswith \"13.107.\" and DestinationIP !startswith\r\n  \"204.79.197.\" and DestinationIP !startswith  \"142.250.187.238\" and\r\n  DestinationIP !startswith \"44.192.201.128\" and DestinationIP !startswith\r\n  \"15.197.229.100\" and DestinationIP !startswith \"20.197.\"\r\n  | where DestinationPort != 123\r\n  | where DestinationIP !startswith \"165.\"\r\n  | where not( ipv4_is_private( DestinationIP))\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1571",
+                                                                "T1205",
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "DestinationIP"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,69 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4059f149-a08e-4c7b-a794-a048ff94b39a')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4059f149-a08e-4c7b-a794-a048ff94b39a')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Okta - User unlocked - [WC-BASE]",
+                                             "description":  "",
+                                             "severity":  "Informational",
+                                             "enabled":  true,
+                                             "query":  "Okta_CL\n  | where eventType_s == \"system.email.mfa_reset_notification.sent_message\"\n  | extend parse_json(target_s)[0].displayName\n  | project TimeGenerated, target_s_0_displayName, actor_alternateId_s, client_userAgent_os_s,client_geographicalContext_country_s, client_geographicalContext_city_s\n  | project-rename Unlocked_Okta_user = target_s_0_displayName\n  | project-rename Okta_admin_unlock_user = actor_alternateId_s\n  | project-rename Okta_admin_user_agent = client_userAgent_os_s\n  | project-rename Okta_admin_country = client_geographicalContext_country_s\n  | project-rename Okta_admin_city = client_geographicalContext_city_s\n",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P1D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078",
+                                                                "T1098"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  false,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

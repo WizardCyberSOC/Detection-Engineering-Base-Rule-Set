@@ -1,0 +1,82 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b95bbd26-2a53-4b5f-a9be-2044bcd8a490')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b95bbd26-2a53-4b5f-a9be-2044bcd8a490')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Okta - Critical Account Failure Events - [WC-BASE]",
+                                             "description":  "Identifies any failures for critical accounts.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 3;\r\nlet watchlist = (_GetWatchlist('criticalaccounts')\r\n    | project SearchKey);\r\nOkta_CL\r\n| where actor_alternateId_s in (watchlist)\r\n| where outcome_result_s contains \"FAILURE\"\r\n| where severity_s !contains \"ERROR\" // This is a Workaround to Event 4625 triggering false sign in attempts. RN - 04/12/2023\r\n| summarize\r\n    StartTime = min(TimeGenerated),\r\n    EndTime = max(TimeGenerated),\r\n    FailedLogonCount = count()\r\n    by outcome_result_s, actor_alternateId_s\r\n| where FailedLogonCount \u003e= threshold",
+                                             "queryFrequency":  "PT30M",
+                                             "queryPeriod":  "PT30M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "actor_alternateId_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

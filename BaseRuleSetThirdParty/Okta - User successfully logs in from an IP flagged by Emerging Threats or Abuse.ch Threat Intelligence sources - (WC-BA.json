@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/6f10b7a3-db36-446b-8ac8-e6aaf49b135d')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/6f10b7a3-db36-446b-8ac8-e6aaf49b135d')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Okta - User successfully logs in from an IP flagged by Emerging Threats or Abuse.ch Threat Intelligence sources - [WC-BASE]",
+                                             "description":  "",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let malicious_ips = (externaldata(possibly_malicous_ip:string)\n  [\n  @\"https://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt\",\n  @\"https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.txt\",\n  @\"https://feodotracker.abuse.ch/downloads/ipblocklist.txt\",\n  @\"https://feodotracker.abuse.ch/downloads/ipblocklist_aggressive.txt\"\n  ]\n  with(format=\"txt\")\n  | where possibly_malicous_ip matches regex \"(^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)\"\n  | distinct possibly_malicous_ip\n  );\n  Okta_CL\n  | where eventType_s == \"user.authentication.sso\"\n  | where outcome_result_s == \"SUCCESS\"\n  | where isnotempty(client_ipAddress_s)\n  | where client_ipAddress_s in (malicious_ips)\n  | sort by TimeGenerated\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "actor_displayName_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

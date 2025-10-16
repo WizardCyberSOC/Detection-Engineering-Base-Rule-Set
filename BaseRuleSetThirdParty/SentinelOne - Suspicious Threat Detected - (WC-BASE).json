@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/7b386f9f-a81c-4812-8922-e6d6616f5fd5')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/7b386f9f-a81c-4812-8922-e6d6616f5fd5')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SentinelOne - Suspicious Threat Detected - [WC-BASE]",
+                                             "description":  "This alert rule will query the SentinleOne_CL table for any Suspicious Threat Messages.\nThis will then alert and send Comtact SOC a alert to start the invetsigation into each event found or raised.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "SentinelOne_CL\n| where primaryDescription_s contains \"Threat with confidence level suspicious\"\n| project TimeGenerated, primaryDescription_s, data_confidenceLevel_s, data_fileContentHash_s, data_fileDisplayName_s, data_filePath_s, data_threatClassification_s, data_computerName_s, siteName_s\n| project-rename Computer = data_computerName_s, ConfidenceLevel = data_confidenceLevel_s, FileContentHash = data_fileContentHash_s, FilePath = data_filePath_s, FileName = data_fileDisplayName_s, ThreatClass = data_threatClassification_s, Description = primaryDescription_s, Site = siteName_s\n| order by TimeGenerated desc",
+                                             "queryFrequency":  "PT30M",
+                                             "queryPeriod":  "PT30M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "Computer"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

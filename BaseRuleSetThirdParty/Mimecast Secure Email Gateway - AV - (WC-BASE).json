@@ -1,0 +1,101 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2e237437-6115-4e12-aff7-fb9617e81d59')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2e237437-6115-4e12-aff7-fb9617e81d59')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Mimecast Secure Email Gateway - AV - [WC-BASE]",
+                                             "description":  "Detects threats from email anti virus scan",
+                                             "severity":  "Informational",
+                                             "enabled":  true,
+                                             "query":  "MimecastSIEM_CL| where mimecastEventId_s==\"mail_av\"",
+                                             "queryFrequency":  "PT5M",
+                                             "queryPeriod":  "PT5M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Execution"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1053"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "0f0dc725-29dc-48c3-bf10-bd2f34fd1cbb",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "sha1":  "sha1_s",
+                                                                   "fileName":  "fileName_s",
+                                                                   "MimecastIP":  "MimecastIP_s",
+                                                                   "SenderDomain":  "SenderDomain_s",
+                                                                   "fileMime":  "fileMime_s",
+                                                                   "Route":  "Route_s",
+                                                                   "sha256":  "sha256_s",
+                                                                   "MsgId":  "MsgId_s",
+                                                                   "IP":  "IP_s",
+                                                                   "fileExt":  "fileExt_s",
+                                                                   "Virus":  "Virus_s",
+                                                                   "SenderDomainInternal":  "SenderDomainInternal_s",
+                                                                   "Size":  "Size_s",
+                                                                   "md5":  "md5_g"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "MailMessage",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Sender",
+                                                                                                  "columnName":  "Sender_s"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "Recipient",
+                                                                                                  "columnName":  "Recipient_s"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "Subject",
+                                                                                                  "columnName":  "Subject_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

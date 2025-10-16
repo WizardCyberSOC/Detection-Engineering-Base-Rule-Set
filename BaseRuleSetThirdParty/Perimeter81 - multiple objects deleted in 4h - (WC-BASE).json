@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/00ccf37f-71d6-46b7-89c7-9d20a65f25a7')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/00ccf37f-71d6-46b7-89c7-9d20a65f25a7')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Perimeter81 - multiple objects deleted in 4h - [WC-BASE]",
+                                             "description":  "Identifies objects being deleted through Perimeter81 VPN",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "Perimeter81_CL\r\n| where TimeGenerated \u003e ago(4h) and (eventName_s matches regex \"api.activity.*.remove*\" or eventName_s matches regex \"api.activity.*.delete*\" or eventName_s matches regex \"api.activity.*.destroy*\")\r\n| summarize count(), make_set(eventName_s), min(TimeGenerated), max(TimeGenerated) by ip_s, releasedBy_email_s\r\n| where count_ \u003e 3\r\n| where max_TimeGenerated \u003e ago(245m)",
+                                             "queryFrequency":  "PT4H",
+                                             "queryPeriod":  "PT12H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1070"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "releasedBy_email_s"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ip_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/31c33404-9748-4c9f-a6bc-895dd846cb4d')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/31c33404-9748-4c9f-a6bc-895dd846cb4d')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Mimecast Targeted Threat Protection - Attachment Protect - [WC-BASE]",
+                                             "description":  "Detects a threat for an unsafe attachment in an email",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "MimecastTTPAttachment_CL| where result_s \u003c\u003e \"safe\";",
+                                             "queryFrequency":  "PT5M",
+                                             "queryPeriod":  "PT5M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT1H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Reconnaissance"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1598"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "aa75944c-a663-4901-969e-7b55bfa49a73",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "fileType":  "fileType_s",
+                                                                   "fileName":  "fileName_s",
+                                                                   "fileHash":  "fileHash_s",
+                                                                   "details":  "details_s"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "MailMessage",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Sender",
+                                                                                                  "columnName":  "senderAddress_s"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "Recipient",
+                                                                                                  "columnName":  "recipientAddress_s"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "Subject",
+                                                                                                  "columnName":  "subject_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.0"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

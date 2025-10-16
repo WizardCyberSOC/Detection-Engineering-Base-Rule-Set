@@ -1,0 +1,82 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/cc1ed8c7-8888-42f2-bf1f-c5439e9ed701')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/cc1ed8c7-8888-42f2-bf1f-c5439e9ed701')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Palo Alto - Detected Port Scanning Activity - [WC-BASE]",
+                                             "description":  "This rule detects potential port scanning activities by identifying multiple connection attempts to various ports from a single source IP address. The rule monitors traffic over a 3-hour period and flags IP addresses that have scanned more than a predefined threshold of ports. It excludes private and loopback IP addresses, focusing on external sources potentially performing reconnaissance.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 20;\r\nCommonSecurityLog\r\n| where TimeGenerated \u003e ago(1h)\r\n| where DeviceVendor contains \"Palo Alto Networks\"\r\n| where DeviceAction contains \"accept\"\r\n| extend AcceptTime = TimeGenerated\r\n| where DestinationPort \u003c 1024\r\n| join kind=leftouter  (CommonSecurityLog\r\n        | where TimeGenerated \u003e ago(1h)\r\n        | where DeviceAction !contains \"accept\"\r\n        | extend CloseTime = TimeGenerated)\r\n        on SourceIP\r\n    | where isnull( CloseTime) or  CloseTime \u003e AcceptTime\r\n    | summarize arg_min(CloseTime,*) by SourceIP\r\n    | where (CloseTime \u003e= AcceptTime + 1m) or isnull( CloseTime)\r\n| summarize ScannedPorts = make_set(DestinationPort) by SourceIP\r\n| where array_length(ScannedPorts) \u003e threshold\r\n| where not(ipv4_is_private(SourceIP)) and SourceIP != \"127.0.0.1\"",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery",
+                                                             "Reconnaissance"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1046",
+                                                                "T1595"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "ScannedPorts":  "ScannedPorts"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIP"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

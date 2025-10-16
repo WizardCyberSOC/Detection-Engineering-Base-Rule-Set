@@ -1,0 +1,79 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2f25ac6b-1dc8-420d-a55e-f0d0e3b11f67')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2f25ac6b-1dc8-420d-a55e-f0d0e3b11f67')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Okta - General Users Failure Events - [WC-BASE]",
+                                             "description":  "Checks for accounts that have had 5 or more failed events in the past 10 minutes.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 5; // Changed threshold from 3 -\u003e 5 due to Analysis performed 04/12/2023\r\nlet IVSLoginSet = SigninLogs\r\n    | where ResultType == 0\r\n    | extend deviceId_ = DeviceDetail.deviceId\r\n    | extend authMethod_ = tostring(MfaDetail.authMethod)\r\n    | where isnotempty(deviceId_) or isnotempty(authMethod_)\r\n    | distinct IPAddress;\r\nlet NIVSLoginSet = AADNonInteractiveUserSignInLogs\r\n    | where ResultType == 0\r\n    | extend deviceId_ = tostring(parse_json(DeviceDetail).deviceId)\r\n    | where isnotempty(deviceId_)\r\n    | distinct IPAddress;\r\nlet watchlist = (_GetWatchlist('VIPUsers')\r\n    | project SearchKey);\r\nOkta_CL\r\n| where outcome_result_s contains \"FAILURE\" // Looking for failed login only\r\n| where actor_alternateId_s != \"system@okta.com\"\r\n| where actor_alternateId_s !in (watchlist)\r\n| where client_ipAddress_s !in (IVSLoginSet)\r\n| where client_ipAddress_s !in (NIVSLoginSet)\r\n| where not(authenticationContext_interface_s contains \"RADIUS\" and outcome_reason_s contains \"Login denied. No matching user is assigned to Radius App Azure VPN - Fortinet Fortigate (RADIUS).\")\r\n| where severity_s !contains \"ERROR\"\r\n| summarize\r\n    StartTime = min(TimeGenerated),\r\n    EndTime = max(TimeGenerated),\r\n    FailedLogonCount = count()\r\n    by outcome_result_s, actor_alternateId_s\r\n| where FailedLogonCount \u003e= threshold",
+                                             "queryFrequency":  "PT10M",
+                                             "queryPeriod":  "PT10M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "actor_alternateId_s"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

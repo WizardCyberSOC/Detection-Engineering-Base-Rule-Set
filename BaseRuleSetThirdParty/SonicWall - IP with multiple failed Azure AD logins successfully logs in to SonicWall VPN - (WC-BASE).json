@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/9418401d-dd05-431e-839f-6c8b05504dc9')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/9418401d-dd05-431e-839f-6c8b05504dc9')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SonicWall - IP with multiple failed Azure AD logins successfully logs in to SonicWall VPN - [WC-BASE]",
+                                             "description":  "This query creates a list of IP addresses with a number failed login attempts to AAD above a set threshold. It then looks for any successful Sonic Wall VPN logins from any of these IPs within the same timeframe.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "// Set threshold for AAD login failures\r\nlet signin_threshold = 5;\r\nlet aadFunc = (tableName:string) {\r\n    table(tableName)\r\n    | where ResultType !in (\"0\", \"50125\", \"50140\")\r\n    | where IPAddress !in (\"127.0.0.1\", \"::1\")\r\n    | summarize count() by IPAddress\r\n    | where count_ \u003e signin_threshold\r\n    | summarize make_set(IPAddress)\r\n};\r\nlet aadSignin = aadFunc(\"SigninLogs\");\r\nlet aadNonInt = aadFunc(\"AADNonInteractiveUserSignInLogs\");\r\nlet suspicious_signins = union isfuzzy=true aadSignin, aadNonInt\r\n| summarize make_set(set_IPAddress);\r\nCommonSecurityLog\r\n| where DeviceVendor contains \"SonicWall\"\r\n| where DestinationPort == 500 and not(Activity has_any (\"Unknown\",\"Not Found\",\"Mismatch\",\"Rejected\"))\r\n| where SourceIP in (suspicious_signins)\r\n| extend Reason = \"Multiple failed AAD logins from SourceIP\"\r\n| project TimeGenerated, Reason, SourceIP, DestinationIP, DeviceName, DeviceProduct, Activity, ApplicationProtocol\r\n| extend IPCustomEntity = SourceIP, timestamp = TimeGenerated, HostCustomEntity = DeviceName",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

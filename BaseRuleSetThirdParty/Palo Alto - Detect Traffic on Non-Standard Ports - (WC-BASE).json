@@ -1,0 +1,78 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/c4345830-6260-4987-9426-571ef9e415f8')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/c4345830-6260-4987-9426-571ef9e415f8')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Palo Alto - Detect Traffic on Non-Standard Ports - [WC-BASE]",
+                                             "description":  "This rule detects successful connection attempts to services running on non-standard ports. It monitors services like SSH, HTTP, and HTTPS, and flags connections made to ports that deviate from typical standards (ports 22, 80, 443).",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let standardPorts = dynamic([22, 80, 443]);\r\nCommonSecurityLog\r\n| where DeviceVendor contains \"Palo Alto Networks\"\r\n| where DeviceAction contains \"accept\"\r\n| where  ApplicationProtocol  has_any (\"http\",\"https\",\"ssh\")\r\n| where DestinationPort !in (standardPorts)\r\n| extend AcceptTime = TimeGenerated\r\n| join kind=leftouter  (CommonSecurityLog\r\n        | where DeviceAction !contains \"accept\"\r\n        | extend CloseTime = TimeGenerated)\r\n        on SourceIP\r\n    | where isnull( CloseTime) or  CloseTime \u003e AcceptTime\r\n    | summarize arg_min(CloseTime,*) by SourceIP\r\n    | where (CloseTime \u003e= AcceptTime + 10m) or isnull( CloseTime)",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1571"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIP"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

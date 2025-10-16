@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/59a95027-52e9-4b96-a85b-de342dda7e97')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/59a95027-52e9-4b96-a85b-de342dda7e97')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SquidProxy - TI Map IP Entity to SquidProxy - [WC-BASE]",
+                                             "description":  "This query maps any IP indicators of compromise (IOCs) from threat intelligence (TI), by searching for matches in SquidProxy.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let dt_lookBack = 1h;\nlet ioc_lookBack = 14d;\nlet TI = ThreatIntelIndicators\n| where TimeGenerated \u003e ago(14d)\n| distinct TIEntity = ObservableValue\n| where isnotempty(TIEntity)\n| where not(ipv4_is_private(TIEntity));\nlet SquidProxySourceIP = \n  SquidProxy_CL_Parsed\n  | where TimeGenerated \u003e ago(dt_lookBack)\n  | join kind=inner TI on $left.SourceIP == $right.TIEntity\n  | distinct SourceIP;\nlet SquidProxyDestIP = \n  SquidProxy_CL_Parsed\n  | where TimeGenerated \u003e ago(dt_lookBack)\n  | join kind=inner TI on $left.DestinationIP == $right.TIEntity\n  | distinct DestinationIP;\nSquidProxy_CL_Parsed\n  | where TimeGenerated \u003e ago(dt_lookBack)\n  | where SourceIP in (SquidProxySourceIP) or DestinationIP in (SquidProxyDestIP)\n  | summarize Count = count(), FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n    by SourceIP, DestinationIP\n| where Count \u003e 10 // Optional: only show repeated matches\n| order by Count desc;",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "SourceIP"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "DestinationIP"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

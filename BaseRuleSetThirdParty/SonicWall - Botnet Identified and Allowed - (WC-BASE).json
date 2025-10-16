@@ -1,0 +1,79 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/7394993b-7750-4fd9-87a6-413866a776a2')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/7394993b-7750-4fd9-87a6-413866a776a2')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SonicWall - Botnet Identified and Allowed - [WC-BASE]",
+                                             "description":  "Botnet Traffic detected and allowed by SonicWall.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "CommonSecurityLog\r\n| where DeviceVendor contains \"SonicWall\"\r\n| where Activity == \"Connection Opened\"\r\n| where IndicatorThreatType has \"Botnet\"\r\n| extend AcceptTime = TimeGenerated\r\n| join kind=leftouter  (CommonSecurityLog\r\n        | where Activity  == \"Connection Closed\"\r\n        | extend CloseTime = TimeGenerated)\r\n        on MaliciousIP\r\n    | where isnull( CloseTime) or  CloseTime \u003e AcceptTime\r\n    | summarize arg_min(CloseTime,*) by MaliciousIP\r\n    | where (CloseTime \u003e= AcceptTime + 10m) or isnull( CloseTime)",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "ResourceDevelopment"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1584",
+                                                                "T1583"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "MaliciousIP"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
