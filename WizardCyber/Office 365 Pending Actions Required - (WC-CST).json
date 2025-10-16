@@ -1,0 +1,68 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4ff033fa-5bdd-4bfc-911b-3624e2700a24')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4ff033fa-5bdd-4bfc-911b-3624e2700a24')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Office 365 Pending Actions Required - [WC-CST]",
+                                             "description":  "Actions are pending to remediate O365 alert. Please log in to the respective Defender portal and approve the remediation actions.",
+                                             "severity":  "Informational",
+                                             "enabled":  true,
+                                             "query":  "let CustomerList = datatable(CustomerName:string, CustomerID:string)\r\n[\r\n    \"Kelvion\", \"6c25c73c-3c45-4a39-924a-720525a5e387\",\r\n    \"West Kent\", \"653c585f-3f3f-4911-b045-ccbc90e40989\",\r\n    \"Unilever Prestige\", \"44034125-9fde-44de-abbd-5c97c68ddfde\",\r\n    \"Alchemy\", \"0b0e1966-4f1e-4f74-838c-e1b43ff0728e\",\r\n    \"Wizard Group\", \"bf1b9055-37cb-465d-81e8-436aa781bd3a\",\r\n    \"My Future Living\", \"dfde36d0-be31-47af-96cb-39c13acf6fc4\",\r\n    \"Gresham\", \"bd9231a1-91f7-43dd-aed2-c2181aaf9779\",\r\n    \"Landfair\", \"b42b1530-016e-4992-9d34-33062c7fc724\",\r\n    \"Garancia\", \"4c9a52a2-fc1d-41c5-8af0-2cef74b8bd1c\",\r\n    \"Warba Bank\", \"6c5b7217-8cd8-4043-b15b-d22381208abb\",\r\n    \"Liquidity\", \"574df496-0e1b-44b8-8e8b-c1b4f6ac4f63\",\r\n    \"Livingproof\", \"769e61a2-36e5-4052-a14a-9db699ba8b40\",\r\n    \"Revalize\", \"054fd1a4-d5c6-46e8-8c4a-c9d3e04689af\",\r\n    \"Murad LLC\", \"87f9546d-84bf-450c-a675-dddfc88293ff\",\r\n    \"Synergy\", \"28956943-776b-433a-8182-792bad37e33f\",\r\n    \"Kate Somerville\", \"7b116ce0-a714-44b2-96ca-1dcd26d93a67\",\r\n    \"Paula's Choice\", \"8959bc5f-a363-4b4c-904b-cc30025296a6\",\r\n    \"Tatcha\", \"142d7b1d-7124-49b2-bb03-062117207b46\",\r\n    \"K-18\", \"ba7f5c10-3f5c-47ff-ab0c-dd02c4f02636\",\r\n    \"Hourglass\", \"06eba26e-bef1-4857-8f22-24080e09ccee\",\r\n    \"UPD China\", \"7f0e291a-1642-4507-8526-008bd0962f78\",\r\n    \"Dermalogica\", \"338b28ed-c76a-4366-9cdf-270f846ac3bb\",\r\n    \"GoUni\", \"13c90859-a5fd-426c-aed1-3a15e5b67717\"\r\n];\r\nunion \r\nworkspace(\"WizardCyber\").SecurityAlert, // Alchemy\r\nworkspace(\"WC-Murad-Sentinel\").SecurityAlert, // Murad LLC\r\nworkspace(\"UPD-Sentinel\").SecurityAlert, // UPD China\r\nworkspace(\"Tatcha-Sentinel\").SecurityAlert, // Tatcha\r\nworkspace(\"Sentinel-ADInfra\").SecurityAlert, // Paula's Choice\r\nworkspace(\"Security-EUS-LA\").SecurityAlert, // Liquidity\r\nworkspace(\"MyFutureLiving\").SecurityAlert, // My Future Living\r\nworkspace(\"Livingproof-Sentinel\").SecurityAlert, // Livingproof\r\nworkspace(\"Landfair\").SecurityAlert, // Landfair\r\nworkspace(\"6c25c73c-3c45-4a39-924a-720525a5e387\").SecurityAlert, // Kelvion\r\nworkspace(\"4c9a52a2-fc1d-41c5-8af0-2cef74b8bd1c\").SecurityAlert, // Garancia\r\nworkspace(\"KS-Sentinel\").SecurityAlert, // Kate Somerville\r\nworkspace(\"K18-Aquis-Sentine\").SecurityAlert, // K-18\r\nworkspace(\"Hourglass-ULP-Sentinel\").SecurityAlert, // Hourglass\r\nworkspace(\"Hadleigh-Assets\").SecurityAlert, // Hadleigh\r\nworkspace(\"GO-UNI-Sentinel\").SecurityAlert, // GoUni\r\nworkspace(\"Deramalogic-Sentinel\").SecurityAlert // Dermalogica\r\n| where parse_json(ExtendedProperties).Status == \"Pending Action\"\r\n| project TimeGenerated,AlertName,ProviderName,Status = tostring(parse_json(ExtendedProperties).Status),SystemAlertId,TenantId\r\n| join kind=leftouter CustomerList on $left.TenantId == $right.CustomerID\r\n| summarize StartTime = min(TimeGenerated),EndTime = max(TimeGenerated), Alerts = make_set(AlertName), Statuses = make_set(Status) by CustomerName",
+                                             "queryFrequency":  "P2D",
+                                             "queryPeriod":  "P2D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

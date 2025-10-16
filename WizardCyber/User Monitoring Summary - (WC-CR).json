@@ -1,0 +1,68 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/c24766a4-e335-4b6d-ba81-98251ee4fef7')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/c24766a4-e335-4b6d-ba81-98251ee4fef7')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "User Monitoring Summary - [WC-CR]",
+                                             "description":  "This query monitors the insider risk activities done by user Shervin Zangeneh from Dermalogica.",
+                                             "severity":  "Informational",
+                                             "enabled":  false,
+                                             "query":  "let UserUPN = dynamic([\"adm-shervin@dermalogica.com\", \"shervin.zangeneh@dermalogica.com\"]);\r\nlet AlertMailboxDelegations = \r\n    workspace(\"Deramalogic-Sentinel\").OfficeActivity\r\n    | where ((Operation =~ 'Add-MailboxPermission') and (* contains 'FullAccess' or * contains 'SendAs' or * contains 'SendOnBehalf'))\r\n    | where parse_json(Parameters)[1] !contains \"DiscoverySearchMailbox\"\r\n    | extend IPAddress = iff(\r\n                             ClientIP matches regex @'^\\[[0-9a-fA-F:]+\\]:\\d+$',\r\n                             replace(@'^\\[([0-9a-fA-F:]+)\\]:\\d+$', @'\\1', tostring(ClientIP)),\r\n                             iff(\r\n    ClientIP matches regex @'^\\d{1,3}(\\.\\d{1,3}){3}:\\d+$',\r\n    replace(@'^(\\d{1,3}(\\.\\d{1,3}){3}):\\d+$', @'\\1', ClientIP),\r\n    'Invalid IP'\r\n)\r\n                         )\r\n    | extend UserId = tolower(UserId)\r\n    | where UserId has_any (UserUPN)\r\n    | extend TargetID = tostring(parse_json(Parameters)[1].Value)\r\n    | join kind=leftouter (workspace(\"Deramalogic-Sentinel\").SigninLogs\r\n        | project UserPrincipalName, UserId)\r\n        on $left.TargetID == $right.UserId\r\n    | project\r\n        TimeGenerated,\r\n        Operation,\r\n        UserId,\r\n        IPAddress,\r\n        OfficeObjectId,\r\n        ResultStatus,\r\n        Parameters,\r\n        TargetID\r\n    | project\r\n        TimeGenerated,\r\n        Details = strcat(\r\n                      \"\\nUserUPN: \",\r\n                      tolower(UserId),\r\n                      \"\\nOperation: \",\r\n                      Operation,\r\n                      \"\\nTargetID: \",\r\n                      TargetID,\r\n                      \"\\nIPAddress: \",\r\n                      IPAddress,\r\n                      \"\\nOfficeObjectId: \",\r\n                      OfficeObjectId,\r\n                      \"\\nResultStatus: \",\r\n                      ResultStatus\r\n                  )\r\n    | extend Case = \"Mailbox Delegation\"\r\n    | project TimeGenerated, Case, Details;\r\nlet AlertDeviceIsolation = \r\n    workspace(\"Deramalogic-Sentinel\").CloudAppEvents\r\n    | where ActionType == \"IsolateDevice\"\r\n    | where RawEventData.UserId has_any (UserUPN)\r\n    | extend DeviceName =  RawEventData.DeviceName\r\n    | extend Details = strcat(\r\n                           \"\\nUserUPN: \",\r\n                           RawEventData.UserId,\r\n                           \"\\nDeviceName: \",\r\n                           RawEventData.DeviceName\r\n                       )\r\n    | extend Case = \"Device Isolate\"\r\n    | project TimeGenerated, Case, Details;\r\nlet AlertMFAOrPWRegistration = \r\n    workspace(\"Deramalogic-Sentinel\").AuditLogs \r\n    | extend UserPrincipalName = tolower(tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName))\r\n    | where UserPrincipalName has_any (UserUPN)\r\n    | where OperationName in (\"User registered security info\", \"User deleted security info\", \"User registered all required security info\", \"User changed default security info\", \"Unlock user account (self-service)\", \"Reset password (self-service)\", \"Change password (self-service)\")\r\n    | where Result == \"success\" \r\n    | extend IPAddress = tostring(parse_json(tostring(InitiatedBy.user)).ipAddress) \r\n    | where isnotempty(IPAddress)\r\n    | project\r\n        TimeGenerated,\r\n        Initiator = UserPrincipalName,\r\n        IPAddress,\r\n        OperationName,\r\n        Target = TargetResources[0].userPrincipalName\r\n    | extend Details = strcat(\r\n                           \"\\nInitiator: \",\r\n                           Initiator,\r\n                           \"\\nTarget: \",\r\n                           Target,\r\n                           \"\\nOperation: \",\r\n                           OperationName,\r\n                           \"\\nIPAddress: \",\r\n                           IPAddress\r\n                       )\r\n    | extend Case = \"Password Reset or MFA registration\"\r\n    | project TimeGenerated, Case, Details;\r\nlet AlertPrivilegedRoleAssignment = \r\n    workspace(\"Deramalogic-Sentinel\").AuditLogs\r\n    | where Category =~ \"RoleManagement\"\r\n    | where AADOperationType in (\"Assign\", \"AssignEligibleRole\")\r\n    | where ActivityDisplayName has_any (\"Add eligible member to role\", \"Add member to role\")\r\n    | mv-apply TargetResource = TargetResources on\r\n        (\r\n        where TargetResource.type in~ (\"User\")\r\n        | extend\r\n            Target = iff(TargetResource.type =~ \"ServicePrincipal\", tostring(TargetResource.displayName), tostring(TargetResource.userPrincipalName)),\r\n            props = TargetResource.modifiedProperties\r\n        )\r\n    | mv-apply Property = props on\r\n        (\r\n        where Property.displayName =~ \"Role.DisplayName\"\r\n        | extend RoleName = trim('\"', tostring(Property.newValue))\r\n        )\r\n    | where RoleName contains \"Admin\" and Result == \"success\"\r\n    | extend InitiatingAppName = tostring(InitiatedBy.app.displayName)\r\n    | extend InitiatingUserPrincipalName = tostring(InitiatedBy.user.userPrincipalName)\r\n    | extend InitiatingIpAddress = tostring(iff(isnotempty(InitiatedBy.user.ipAddress), InitiatedBy.user.ipAddress, InitiatedBy.app.ipAddress))\r\n    | extend Initiator = iif(isnotempty(InitiatingAppName), InitiatingAppName, InitiatingUserPrincipalName)\r\n    | project\r\n        TimeGenerated,\r\n        OperationName,\r\n        RoleName,\r\n        Target,\r\n        Initiator,\r\n        InitiatingUserPrincipalName,\r\n        InitiatingAppName,\r\n        InitiatingIpAddress\r\n    | extend\r\n        TargetName = tostring(split(Target, '@', 0)[0]),\r\n        TargetUPNSuffix = tostring(split(Target, '@', 1)[0]),\r\n        InitiatorName = tostring(split(InitiatingUserPrincipalName, '@', 0)[0]),\r\n        InitiatorUPNSuffix = tostring(split(InitiatingUserPrincipalName, '@', 1)[0])\r\n    | extend Target = tolower(Target)\r\n    | where Target has_any (UserUPN) or Initiator has_any (UserUPN)\r\n    | project TimeGenerated, OperationName, RoleName, Initiator, Target\r\n    | extend Details = strcat(\r\n                           \"\\nTarget: \",\r\n                           Target,\r\n                           \"\\nRoleName: \",\r\n                           RoleName,\r\n                           \"\\nInitiator: \",\r\n                           Initiator,\r\n                           \"\\nOperation: \",\r\n                           OperationName\r\n                       )\r\n    | extend Case = \"Privileged Role Assignment\"\r\n    | project TimeGenerated, Case, Details;\r\nlet FinalTable = union \r\n        AlertDeviceIsolation,\r\n        AlertMailboxDelegations,\r\n        AlertPrivilegedRoleAssignment,\r\n        AlertMFAOrPWRegistration\r\n        | project-reorder Case, TimeGenerated;\r\nFinalTable",
+                                             "queryFrequency":  "PT12H",
+                                             "queryPeriod":  "PT12H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  "2025-08-16T05:30:00.000Z",
+                                             "tactics":  [
+
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
