@@ -135,7 +135,10 @@ function GetCommitShaTable($getTreeResponse) {
 
 function PushCsvToRepo() {
     $content = ConvertTableToString
-    $relativeCsvPath = RelativePathWithBackslash $csvPath
+    # Extract just the filename from csvPath and construct the correct relative path
+    $csvFileName = Split-Path $csvPath -Leaf
+    $subdirectoryName = Split-Path $rootDirectory -Leaf
+    $relativeCsvPath = "$subdirectoryName\.sentinel\$csvFileName"
     $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
 
     if ($resourceBranchExists -eq 0) {
@@ -991,7 +994,10 @@ function TryGetCsvFile {
         git push origin $branchName
     }
 
-    $relativeCsvPath = RelativePathWithBackslash $csvPath
+    # Extract just the filename from csvPath and construct the correct relative path
+    $csvFileName = Split-Path $csvPath -Leaf
+    $subdirectoryName = Split-Path $rootDirectory -Leaf
+    $relativeCsvPath = "$subdirectoryName\.sentinel\$csvFileName"
     $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
 
     if ($resourceBranchExists -eq 1) {
