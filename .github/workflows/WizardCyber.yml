@@ -31,7 +31,7 @@ jobs:
       sourceControlId: '6ad70202-274c-4d05-b7d3-867422638828'
       rootDirectory: '${{ github.workspace }}/BaseRuleSet'
       githubAuthToken: ${{ secrets.GITHUB_TOKEN }}
-      smartDeployment: 'false'
+      smartDeployment: 'true'
     permissions:
       contents: write
       id-token: write # Require write permission to Fetch an OIDC token.
@@ -137,7 +137,7 @@ jobs:
       sourceControlId: '6ad70202-274c-4d05-b7d3-867422638828'
       rootDirectory: '${{ github.workspace }}/WizardCyber'
       githubAuthToken: ${{ secrets.GITHUB_TOKEN }}
-      smartDeployment: 'false'
+      smartDeployment: 'true'
     permissions:
       contents: write
       id-token: write # Require write permission to Fetch an OIDC token.
@@ -229,5 +229,6 @@ jobs:
           $env:DELETED_FILES = "${{ steps.changed-files.outputs.deleted_files }}"
 
           ${{ github.workspace }}//.github/workflows/WizardCyber.ps1
+
 
 
