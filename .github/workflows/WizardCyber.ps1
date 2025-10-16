@@ -883,29 +883,6 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
     }
 }
 
-function TryGetCsvFile {
-    if (Test-Path $csvPath) {
-        $global:localCsvTablefinal = ReadCsvToTable
-        Remove-Item -Path $csvPath
-        git add $csvPath
-        git commit -m "Removed tracking file and moved to new sentinel created branch"
-        git push origin $branchName
-    }
-
-    $relativeCsvPath = RelativePathWithBackslash $csvPath
-    $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
-
-    if ($resourceBranchExists -eq 1) {
-        git fetch > $null
-        git checkout $newResourceBranch
-
-        if (Test-Path $relativeCsvPath) {
-            $global:localCsvTablefinal = ReadCsvToTable
-        }
-        git checkout $branchName
-    }
-}
-
 function main() {
     git config --global user.email "donotreply@microsoft.com"
     git config --global user.name "Sentinel"
@@ -948,4 +925,5 @@ function main() {
 }
 
 main
+
 
