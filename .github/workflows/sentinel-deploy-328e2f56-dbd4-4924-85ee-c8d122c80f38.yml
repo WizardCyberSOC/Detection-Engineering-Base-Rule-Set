@@ -9,12 +9,12 @@ name: Deploy Content to WC-SANDBOX [328e2f56-dbd4-4924-85ee-c8d122c80f38]
 #   2. Append the path to the directory environment variable below
 #       directory: '${{ github.workspace }}/SentinelContent'
 
-# on:
-#    push:
-#      branches: [ main ]
-#      paths:
-#      - 'BaseRuleSet/**'
-#      - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
+on:
+   push:
+     branches: [ main ]
+     paths:
+     - 'BaseRuleSet/**'
+     - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
      # workflow_dispatch:
 
 jobs:
@@ -125,6 +125,7 @@ jobs:
           ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-328e2f56-dbd4-4924-85ee-c8d122c80f38.ps1
 
           
+
 
 
 
