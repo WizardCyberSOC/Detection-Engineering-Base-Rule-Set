@@ -896,7 +896,6 @@ function main() {
         Write-Host "[Info] No specific files changed or deleted and smart deployment is enabled. Checking for changes using SHA comparison."
     }
 
-    TryGetCsvFile
     LoadDeploymentConfig
     $tree = GetGithubTree
     $remoteShaTable = GetCommitShaTable $tree
@@ -925,5 +924,6 @@ function main() {
 }
 
 main
+
 
 
