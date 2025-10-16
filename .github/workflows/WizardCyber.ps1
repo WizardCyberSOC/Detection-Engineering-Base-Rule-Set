@@ -897,8 +897,6 @@ function main() {
     }
 
     LoadDeploymentConfig
-    $tree = GetGithubTree
-    $remoteShaTable = GetCommitShaTable $tree
 
     $existingConfigSha = $global:localCsvTablefinal[$configPath]
     $remoteConfigSha = $remoteShaTable[$configPath]
@@ -924,6 +922,7 @@ function main() {
 }
 
 main
+
 
 
 
