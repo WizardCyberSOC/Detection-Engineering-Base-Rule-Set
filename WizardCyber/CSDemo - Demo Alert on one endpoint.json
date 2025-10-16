@@ -11,7 +11,7 @@
                           "properties":  {
                                              "displayName":  "CSDemo - Demo Alert on one endpoint",
                                              "description":  "",
-                                             "severity":  "High",
+                                             "severity":  "Medium",
                                              "enabled":  true,
                                              "query":  "SigninLogs\r\n| where UserPrincipalName contains \"CYBERSHIELD\"\r\n| extend DeviceName = tostring(DeviceDetail.displayName)\r\n| where DeviceName contains \"RAZER-ADAM\"",
                                              "queryFrequency":  "PT5M",
@@ -95,6 +95,7 @@
                    }
 
 }
+
 
 
 
