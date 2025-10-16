@@ -135,17 +135,30 @@ function GetCommitShaTable($getTreeResponse) {
 
 function PushCsvToRepo() {
     $content = ConvertTableToString
-    $relativeCsvPath = RelativePathWithBackslash $csvPath
+    # Extract just the filename from csvPath and construct the correct relative path
+    $csvFileName = Split-Path $csvPath -Leaf
+    $subdirectoryName = Split-Path $rootDirectory -Leaf
+    $relativeCsvPath = "$subdirectoryName\.sentinel\$csvFileName"
     $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
 
     if ($resourceBranchExists -eq 0) {
         git switch --orphan $newResourceBranch
         git commit --allow-empty -m "Initial commit on orphan branch"
         git push -u origin $newResourceBranch
-        New-Item -ItemType "directory" -Path ".sentinel"
+        # Ensure the .sentinel directory exists in the correct location
+        $sentinelDir = Split-Path $csvPath -Parent
+        if (-not (Test-Path $sentinelDir)) {
+            New-Item -ItemType "directory" -Path $sentinelDir -Force
+        }
     } else {
         git fetch > $null
         git checkout $newResourceBranch
+    }
+
+    # Ensure the .sentinel directory exists before writing the CSV
+    $sentinelDir = Split-Path $csvPath -Parent
+    if (-not (Test-Path $sentinelDir)) {
+        New-Item -ItemType "directory" -Path $sentinelDir -Force
     }
 
     Write-Output $content > $relativeCsvPath
@@ -156,14 +169,25 @@ function PushCsvToRepo() {
 }
 
 function ReadCsvToTable {
-    $csvTable = Import-Csv -Path $csvPath
-    $HashTable=@{}
-    foreach($r in $csvTable)
-    {
-        $key = AbsolutePathWithSlash $r.FileName
-        $HashTable[$key]=$r.CommitSha
+    if (-not (Test-Path $csvPath)) {
+        Write-Host "[Info] CSV tracking file not found at $csvPath, starting with empty table"
+        return @{}
     }
-    return $HashTable
+    
+    try {
+        $csvTable = Import-Csv -Path $csvPath
+        $HashTable=@{}
+        foreach($r in $csvTable)
+        {
+            $key = AbsolutePathWithSlash $r.FileName
+            $HashTable[$key]=$r.CommitSha
+        }
+        return $HashTable
+    }
+    catch {
+        Write-Host "[Warning] Failed to read CSV file $csvPath, starting with empty table. Error: $_"
+        return @{}
+    }
 }
 
 function AttemptInvokeRestMethod($method, $url, $body, $contentTypes, $maxRetries) {
@@ -949,6 +973,9 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
 }
 
 function TryGetCsvFile {
+    # Initialize with empty table in case no CSV exists
+    $global:localCsvTablefinal = @{}
+    
     if (Test-Path $csvPath) {
         $global:localCsvTablefinal = ReadCsvToTable
         Remove-Item -Path $csvPath
@@ -957,7 +984,10 @@ function TryGetCsvFile {
         git push origin $branchName
     }
 
-    $relativeCsvPath = RelativePathWithBackslash $csvPath
+    # Extract just the filename from csvPath and construct the correct relative path
+    $csvFileName = Split-Path $csvPath -Leaf
+    $subdirectoryName = Split-Path $rootDirectory -Leaf
+    $relativeCsvPath = "$subdirectoryName\.sentinel\$csvFileName"
     $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
 
     if ($resourceBranchExists -eq 1) {
