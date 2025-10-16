@@ -788,8 +788,12 @@ function ProcessDeletedFiles() {
                     $totalDeleted++
                     Write-Host "[Info] Successfully processed deletion of rule $ruleId"
                     
-                    # Remove from tracking table if it exists
-                    $absolutePath = Join-Path $rootDirectory $relativePath
+                    # Remove from tracking table if it exists - handle BaseRuleSet path prefix correctly
+                    $fileName = $relativePath
+                    if ($relativePath.StartsWith("BaseRuleSet/")) {
+                        $fileName = $relativePath.Substring("BaseRuleSet/".Length)
+                    }
+                    $absolutePath = Join-Path $rootDirectory $fileName
                     if ($global:updatedCsvTable.ContainsKey($absolutePath)) {
                         $global:updatedCsvTable.Remove($absolutePath)
                         Write-Host "[Info] Removed $absolutePath from tracking table"
@@ -868,12 +872,18 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
             $changedFileArray | ForEach-Object {
                 $relativePath = $_.Trim()
                 if (-not [string]::IsNullOrEmpty($relativePath)) {
-                    $absolutePath = Join-Path $rootDirectory $relativePath
+                    # Handle BaseRuleSet path prefix correctly - remove BaseRuleSet prefix if present since rootDirectory already points to BaseRuleSet
+                    $fileName = $relativePath
+                    if ($relativePath.StartsWith("BaseRuleSet/")) {
+                        $fileName = $relativePath.Substring("BaseRuleSet/".Length)
+                    }
+                    $absolutePath = Join-Path $rootDirectory $fileName
                     if (Test-Path $absolutePath) {
                         Write-Host "[Info] Adding changed file to deployment: $absolutePath"
                         $iterationList += $absolutePath
                     } else {
                         Write-Host "[Warning] Changed file not found: $absolutePath"
+                        Write-Host "[Debug] Tried path: $absolutePath (from relativePath: $relativePath, fileName: $fileName, rootDirectory: $rootDirectory)"
                     }
                 }
             }
