@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d248e84b-b01a-46cf-af04-9ae832400afb')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d248e84b-b01a-46cf-af04-9ae832400afb')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Suspicious Azure resource group creation- [WC-BASE]",
+                                             "description":  "This alert triggers when an Azure Resource group is created by an account that is not listed on the admin account watchlist",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let ManagedAttempts = SigninLogs\n    | union AADNonInteractiveUserSignInLogs\n    | where TimeGenerated \u003e ago(14d)\n    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\n    | distinct IPAddress;\nlet GetUser = \nAzureActivity\n| where TimeGenerated \u003e ago(1h)\n| where OperationNameValue == \"MICROSOFT.RESOURCES/DEPLOYMENTS/WRITE\"\n| where ActivityStatusValue == \"Success\"\n| project\n    TimeGenerated,\n    OperationNameValue,\n    ActivityStatus,\n    ResourceGroup,\n    Caller,\n    Type,\n    CallerIpAddress\n| join kind=leftanti ManagedAttempts on $left.CallerIpAddress == $right.IPAddress\n| where Caller contains \"@\"\n| where Caller !contains \"heider.albadawi\" // Wizard's Detection Team Lead\n| summarize OperationsCount = count() by Caller\n| where OperationsCount \u003e 20;\nAzureActivity\n| where TimeGenerated \u003e ago(1h)\n| where OperationNameValue == \"MICROSOFT.RESOURCES/DEPLOYMENTS/WRITE\"\n| where ActivityStatusValue == \"Success\"\n| join kind=inner GetUser on Caller",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Impact"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1496"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "AzureResource",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "ResourceId",
+                                                                                                  "columnName":  "ResourceGroup"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "AadUserId",
+                                                                                                  "columnName":  "Caller"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

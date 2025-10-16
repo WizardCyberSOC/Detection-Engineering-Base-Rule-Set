@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/304d23be-f443-4d35-bb73-79ce918a19f1')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/304d23be-f443-4d35-bb73-79ce918a19f1')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Process Execution Frequency Anomaly - [WC-BASE-W]",
+                                             "description":  "This detection identifies anomalous spike in frequency of executions of sensitive processes which are often leveraged as attack vectors.\nThe query leverages KQL's built-in anomaly detection algorithms to find large deviations from baseline patterns.\nSudden increases in execution frequency of sensitive processes should be further investigated for malicious activity.\nTune the values from 1.5 to 3 in series_decompose_anomalies for further outliers or based on custom threshold values for score.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let starttime = 14d;\nlet endtime = 1d;\nlet timeframe = 1h;\nlet TotalEventsThreshold = 5;\nlet ExeList = dynamic([\"powershell.exe\", \"cmd.exe\", \"wmic.exe\", \"psexec.exe\", \"cacls.exe\", \"rundll.exe\"]);\nlet OnboardedDevices = DeviceInfo\n    | where TimeGenerated \u003e ago(14d)\n    | summarize by DeviceId, DeviceName, OSPlatform, OnboardingStatus\n    | where OnboardingStatus == 'Onboarded'\n    | distinct DeviceName;\nlet TimeSeriesData =\n    SecurityEvent\n    | where EventID == 4688\n    | extend Process = tolower(Process)\n    | where TimeGenerated between (startofday(ago(starttime)) .. startofday(ago(endtime)))\n    | where Process in (ExeList)\n    | project TimeGenerated, Computer, AccountType, Account, Process\n    | make-series Total=count() on TimeGenerated from startofday(ago(starttime)) to startofday(ago(endtime)) step timeframe by Process;\nlet TimeSeriesAlerts = materialize(TimeSeriesData\n    | extend (anomalies, score, baseline) = series_decompose_anomalies(Total, 2, -1, 'linefit')\n    | mv-expand\n        Total to typeof(double),\n        TimeGenerated to typeof(datetime),\n        anomalies to typeof(double),\n        score to typeof(double),\n        baseline to typeof(long)\n    | where anomalies \u003e 0\n    | project Process, TimeGenerated, Total, baseline, anomalies, score\n    | where Total \u003e TotalEventsThreshold);\nlet AnomalyHours = materialize(TimeSeriesAlerts\n    | where TimeGenerated \u003e ago(2d)\n    | project TimeGenerated);\nTimeSeriesAlerts\n| where TimeGenerated \u003e ago(2d)\n| join (\n    SecurityEvent\n    | where TimeGenerated between (startofday(ago(starttime)) .. startofday(ago(endtime)))\n    | extend DateHour = bin(TimeGenerated, 1h) // create a new column and round to hour\n    | where DateHour in ((AnomalyHours)) //filter the dataset to only selected anomaly hours\n    | where EventID == 4688\n    | where isnotempty(CommandLine)\n    | extend Process = tolower(Process)\n    | summarize CommandlineCount = count() by bin(TimeGenerated, 1h), Process, CommandLine, Computer, Account\n    )\n    on Process, TimeGenerated\n| project\n    AnomalyHour = TimeGenerated,\n    Computer,\n    Account,\n    Process,\n    CommandLine,\n    CommandlineCount,\n    Total,\n    baseline,\n    anomalies,\n    score\n| extend\n    timestamp = AnomalyHour,\n    AccountCustomEntity = Account,\n    HostCustomEntity = Computer\n| where not(CommandLine contains \"C:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\")\n| extend HostCustomEntity = tolower(HostCustomEntity)\n| join kind=leftanti OnboardedDevices on $left.HostCustomEntity == $right.DeviceName\n// WHITELIST START\n| extend RuleName = 'Process Execution Frequency Anomaly'\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\n) on RuleName\n| project-away RuleName,RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not(  (TicketIDs contains \"3018027\" and isnotempty(Tuning01)) and Process == Tuning01.[0])\n| project-away Tuning*,TicketIDs\n// WHITELIST END",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Execution"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1059"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "2c55fe7a-b06f-4029-a5b9-c54a2320d7b8",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Account"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "Computer"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.5"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

@@ -1,0 +1,98 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/5bc317a8-db61-4a02-8943-c53b33e55a91')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/5bc317a8-db61-4a02-8943-c53b33e55a91')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Failed logon attempts by valid accounts within 10 mins - [WC-BASE-W]",
+                                             "description":  "Identifies when failed logon attempts are 20 or higher during a 10 minute period (2 failed logons per minute minimum) from valid account.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 20;\nlet ReasontoSubStatus = datatable(SubStatus: string, Reason: string) [\n    \"0xC000005E\", \"There are currently no logon servers available to service the logon request.\",\n    \"0xC0000064\", \"User logon with misspelled or bad user account\", \n    \"0xC000006A\", \"User logon with misspelled or bad password\",\n    \"0xC000006D\", \"Bad user name or password\",\n    \"0xC000006E\", \"Unknown user name or bad password\",\n    \"0xC000006F\", \"User logon outside authorized hours\",\n    \"0xC0000070\", \"User logon from unauthorized workstation\",\n    \"0xC0000071\", \"User logon with expired password\",\n    \"0xC0000072\", \"User logon to account disabled by administrator\",\n    \"0xC00000DC\", \"Indicates the Sam Server was in the wrong state to perform the desired operation\",\n    \"0xC0000133\", \"Clocks between DC and other computer too far out of sync\",\n    \"0xC000015B\", \"The user has not been granted the requested logon type (aka logon right) at this machine\",\n    \"0xC000018C\", \"The logon request failed because the trust relationship between the primary domain and the trusted domain failed\",\n    \"0xC0000192\", \"An attempt was made to logon, but the Netlogon service was not started\",\n    \"0xC0000193\", \"User logon with expired account\",\n    \"0xC0000224\", \"User is required to change password at next logon\",\n    \"0xC0000225\", \"Evidently a bug in Windows and not a risk\",\n    \"0xC0000234\", \"User logon with account locked\",\n    \"0xC00002EE\", \"Failure Reason: An Error occurred during Logon\",\n    \"0xC0000413\", \"Logon Failure: The machine you are logging onto is protected by an authentication firewall. The specified account is not allowed to authenticate to the machine\"\n];\n(union isfuzzy=true\n    (SecurityEvent \n    | where EventID == 4625\n    | where AccountType =~ \"User\"\n    | where SubStatus != '0xc0000064' and Account !in ('\\\\', '-\\\\-')\n    // SubStatus '0xc0000064' signifies 'Account name does not exist'\n    | extend\n        ResourceId = column_ifexists(\"_ResourceId\", _ResourceId),\n        SourceComputerId = column_ifexists(\"SourceComputerId\", SourceComputerId)\n    | lookup ReasontoSubStatus on SubStatus\n    | extend coalesce(Reason, strcat('Unknown reason substatus: ', SubStatus))\n    | summarize\n        StartTime = min(TimeGenerated),\n        EndTime = max(TimeGenerated),\n        FailedLogonCount = count()\n        by\n        EventID, \n        Activity,\n        Computer,\n        Account,\n        TargetAccount,\n        TargetUserName,\n        TargetDomainName, \n        LogonType,\n        LogonTypeName,\n        LogonProcessName,\n        Status,\n        SubStatus,\n        Reason,\n        ResourceId,\n        SourceComputerId,\n        WorkstationName,\n        IpAddress\n    | where FailedLogonCount \u003e= threshold\n    | extend\n        timestamp = StartTime,\n        AccountCustomEntity = Account,\n        HostCustomEntity = Computer,\n        IPCustomEntity = IpAddress\n    | where not(ipv4_is_private(IPCustomEntity))\n    | where not(IPCustomEntity == \"0.0.0.0\")\n    | where not(IPCustomEntity == \"127.0.0.1\")\n    | where not(isempty(IPCustomEntity))\n    | where not(IPCustomEntity contains \"169.254\")\n    ),\n    (\n    (WindowsEvent \n    | where EventID == 4625 and not(EventData has '0xc0000064')\n    | extend TargetAccount = strcat(tostring(EventData.TargetDomainName), \"\\\\\", tostring(EventData.TargetUserName))\n    | extend TargetUserSid = tostring(EventData.TargetUserSid)\n    | extend AccountType=case(EventData.TargetUserName endswith \"$\" or TargetUserSid in (\"S-1-5-18\", \"S-1-5-19\", \"S-1-5-20\"), \"Machine\", isempty(TargetUserSid), \"\", \"User\")\n    | where AccountType =~ \"User\"\n    | extend SubStatus = tostring(EventData.SubStatus)\n    | where SubStatus != '0xc0000064' and TargetAccount !in ('\\\\', '-\\\\-')\n    // SubStatus '0xc0000064' signifies 'Account name does not exist'\n    | extend\n        ResourceId = column_ifexists(\"_ResourceId\", _ResourceId),\n        SourceComputerId = column_ifexists(\"SourceComputerId\", \"\")\n    | lookup ReasontoSubStatus on SubStatus\n    | extend coalesce(Reason, strcat('Unknown reason substatus: ', SubStatus))\n    | extend Activity=\"4625 - An account failed to log on.\"\n    | extend TargetUserName = tostring(EventData.TargetUserName)\n    | extend TargetDomainName = tostring(EventData.TargetDomainName)\n    | extend LogonType = tostring(EventData.LogonType)\n    | extend Status= tostring(EventData.Status)\n    | extend LogonProcessName = tostring(EventData.LogonProcessName)\n    | extend WorkstationName = tostring(EventData.WorkstationName)\n    | extend IpAddress = tostring(EventData.IpAddress)\n    | extend LogonTypeName=case(LogonType == 2, \"2 - Interactive\", LogonType == 3, \"3 - Network\", LogonType == 4, \"4 - Batch\", LogonType == 5, \"5 - Service\", LogonType == 7, \"7 - Unlock\", LogonType == 8, \"8 - NetworkCleartext\", LogonType == 9, \"9 - NewCredentials\", LogonType == 10, \"10 - RemoteInteractive\", LogonType == 11, \"11 - CachedInteractive\", tostring(LogonType))\n    | summarize\n        StartTime = min(TimeGenerated),\n        EndTime = max(TimeGenerated),\n        FailedLogonCount = count()\n        by\n        EventID, \n        Activity,\n        Computer,\n        TargetAccount,\n        TargetUserName,\n        TargetDomainName, \n        LogonType,\n        LogonTypeName,\n        LogonProcessName,\n        Status,\n        SubStatus,\n        Reason,\n        ResourceId,\n        SourceComputerId,\n        WorkstationName,\n        IpAddress\n    | where FailedLogonCount \u003e= threshold\n    | extend\n        timestamp = StartTime,\n        AccountCustomEntity = TargetAccount,\n        HostCustomEntity = Computer,\n        IPCustomEntity = IpAddress\n    | where not(ipv4_is_private(IPCustomEntity))\n    | where not(IPCustomEntity == \"0.0.0.0\")\n    | where not(IPCustomEntity == \"127.0.0.1\")\n    | where not(isempty(IPCustomEntity))\n    | where not(IPCustomEntity contains \"169.254\")\n    )))\n// WHITELIST START\n| extend RuleName = 'Failed logon attempts by valid accounts within 10 mins'\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\n) on RuleName\n| project-away RuleName,RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not(  (TicketIDs contains \"3017935\" and isnotempty(Tuning01)) and (Tuning01.[0] == IPCustomEntity or Tuning01.[1] == IPCustomEntity)  )\n| project-away Tuning*,TicketIDs\n// WHITELIST END\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1110"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "0777f138-e5d8-4eab-bec1-e11ddfbc2be2",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT15M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "HostCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.1.1"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

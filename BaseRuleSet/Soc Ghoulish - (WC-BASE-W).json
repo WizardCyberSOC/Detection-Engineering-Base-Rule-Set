@@ -1,0 +1,103 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/65cf7bc4-563e-4450-94fe-cd381e3aaa17')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/65cf7bc4-563e-4450-94fe-cd381e3aaa17')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Soc Ghoulish - [WC-BASE-W]",
+                                             "description":  "This KQL (Kusto Query Language) query is designed to detect suspicious activities associated with a threat called \"SocGhoulish.\" It looks for three specific behaviors:\nWeb browsers (like Chrome, Firefox, Internet Explorer, and Edge) starting the Windows Scripting Host (wscript.exe) process.\nCommands related to domain trust discovery, specifically using \"nltest.\"",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceProcessEvents\r\n| where TimeGenerated \u003e ago(15m)\r\n| where InitiatingProcessFileName in~ (\"chrome.exe\", \"firefox.exe\", \"iexplore.exe\", \"edge.exe\") and ProcessCommandLine has \"wscript.exe\"\r\n    or InitiatingProcessCommandLine has \"nltest\"\r\n// WHITELIST START\r\n| extend RuleName = 'Soc Ghoulish'\r\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"2646749\" and isnotempty(Tuning01)) and InitiatingProcessParentFileName contains Tuning01.[0] )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery",
+                                                             "Execution"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1007",
+                                                                "T1614",
+                                                                "T1033",
+                                                                "T0863",
+                                                                "T1204"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "InitiatingProcessAccountUpn"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Process",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "CommandLine",
+                                                                                                  "columnName":  "ProcessCommandLine"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

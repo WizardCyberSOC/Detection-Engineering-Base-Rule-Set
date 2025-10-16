@@ -1,0 +1,88 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/27ea6ab5-e43d-47fa-81b3-4ae885ac320a')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/27ea6ab5-e43d-47fa-81b3-4ae885ac320a')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Injected OAuth App detected - [WC-BASE]",
+                                             "description":  "Detects suspicious PowerShell-based activity interacting with Microsoft Graph API.\nFlags operations targeting application password additions or service principal modifications.\nHelps identify potential abuse via injected or unauthorized OAuth applications.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "MicrosoftGraphActivityLogs\r\n| where UserAgent contains \"PowerShell\"\r\n| where (RequestUri has_all(\"https://graph.microsoft.com/v1.0/applications/\", \"addPassword\") or\r\nRequestUri == \"https://graph.microsoft.com/v1.0/applications\" or\r\nRequestUri == \"https://graph.microsoft.com/v1.0/servicePrincipals\")\r\n| extend ApplicationId = tostring(extract(@\"applications/(.*?)/addPassword\", 1, RequestUri))\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1649",
+                                                                "T1606"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "AppId",
+                                                                                                  "columnName":  "AppId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

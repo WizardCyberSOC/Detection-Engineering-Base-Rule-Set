@@ -1,0 +1,95 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b12591a0-d883-4909-beea-fcc8e4b6f2c8')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b12591a0-d883-4909-beea-fcc8e4b6f2c8')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Microsoft Entra ID PowerShell accessing non-Entra ID resources - [WC-BASE-W]",
+                                             "description":  "This will alert when a user or application signs in using Microsoft Entra ID PowerShell to access non-Active Directory resources, such as the Azure Key Vault, which may be undesired or unauthorized behavior.\nFor capabilities and expected behavior of the Microsoft Entra ID PowerShell module, see: https://docs.microsoft.com/powershell/module/azuread/?view=azureadps-2.0.\nFor further information on Microsoft Entra ID Signin activity reports, see: https://docs.microsoft.com/azure/active-directory/reports-monitoring/concept-sign-ins.",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let aadFunc = (tableName: string) {\n    table(tableName)\n    | where AppId =~ \"1b730954-1685-4b74-9bfd-dac224a7b894\" // AppDisplayName IS Azure Active Directory PowerShell\n    | where TokenIssuerType =~ \"AzureAD\"\n    | where ResourceIdentity !in (\"00000002-0000-0000-c000-000000000000\", \"00000003-0000-0000-c000-000000000000\") // ResourceDisplayName IS NOT Windows Azure Active Directory OR Microsoft Graph\n    | extend Status = todynamic(Status)\n    | where Status.errorCode == 0 // Success\n    | project-reorder\n        IPAddress,\n        UserAgent,\n        ResourceDisplayName,\n        UserDisplayName,\n        UserId,\n        UserPrincipalName,\n        Type\n    | order by TimeGenerated desc\n    // New entity mapping\n    | extend\n        timestamp = TimeGenerated,\n        Name = tostring(split(UserPrincipalName, '@', 0)[0]),\n        UPNSuffix = tostring(split(UserPrincipalName, '@', 1)[0])\n};\nlet aadSignin = aadFunc(\"SigninLogs\");\nlet aadNonInt = aadFunc(\"AADNonInteractiveUserSignInLogs\");\nunion isfuzzy=true aadSignin, aadNonInt\n// WHITELIST START\n| extend RuleName = 'Microsoft Entra ID PowerShell accessing non-Entra ID resources'\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\n) on RuleName\n| project-away RuleName,RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not(  (TicketIDs contains \"3018026\" and isnotempty(Tuning01)) and UserPrincipalName == Tuning01.[0])\n| project-away Tuning*,TicketIDs\n// WHITELIST END\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "50574fac-f8d1-4395-81c7-78a463ff0c52",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Name"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "UPNSuffix",
+                                                                                                  "columnName":  "UPNSuffix"
+                                                                                              },
+                                                                                              {
+                                                                                                  "identifier":  "AadUserId",
+                                                                                                  "columnName":  "UserId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.0.3"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

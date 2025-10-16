@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/520cd31b-e4e2-41fa-b645-2ddb20722a09')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/520cd31b-e4e2-41fa-b645-2ddb20722a09')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Detection of a Spoofed Domain - [WC-BASE-CX]",
+                                             "description":  "Identifies if there is a spoofed domain within the sender's or recipient's email addresses or within a connection URI.\nExtended Functionality: This rule requires a watchlist to get the spoofed domains from.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let SpoofedDomains = _GetWatchlist(\"SpoofedDomains\")\r\n| project SpoofedDomain = SearchKey;\r\nlet spoofedemail =\r\nEmailEvents\r\n| extend SenderDomain = tolower(split(SenderFromAddress, \"@\")[1])\r\n| extend ReceiverDomain = tolower(split(RecipientEmailAddress, \"@\")[1])\r\n| where isnotnull(SenderDomain) and isnotnull(ReceiverDomain) and (SenderDomain in (SpoofedDomains));\r\nlet spoofeduri =\r\nDeviceNetworkEvents\r\n| where ActionType contains \"ConnectionSuccess\"\r\n| where AdditionalFields in (SpoofedDomains) or RemoteUrl in (SpoofedDomains);\r\nlet spoofed = union spoofedemail,spoofeduri;\r\nspoofed",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "DefenseEvasion",
+                                                             "Reconnaissance"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1598",
+                                                                "T1036"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "SenderDomain"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "RemoteUrl"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

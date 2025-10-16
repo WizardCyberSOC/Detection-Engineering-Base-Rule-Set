@@ -1,0 +1,100 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/e5866b1c-ab69-4a81-b918-c90c016da5b6')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/e5866b1c-ab69-4a81-b918-c90c016da5b6')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "SharePointFileOperation via previously unseen IPs - [WC-BASE]",
+                                             "description":  "Identifies anomalies using user behavior by setting a threshold for significant changes in file upload/download activities from new IP addresses. It establishes a baseline of typical behavior, compares it to recent activity, and flags deviations exceeding a default threshold of 25.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let threshold = 10;\nlet szSharePointFileOperation = \"SharePointFileOperation\";\nlet szOperations = dynamic([\"FileDownloaded\", \"FileUploaded\"]);\nlet starttime = 14d;\nlet endtime = 1h;\nlet ManagedAttempts = SigninLogs\n| union AADNonInteractiveUserSignInLogs\n| where TimeGenerated \u003e ago(14d)\n| where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\n| distinct IPAddress;\nlet historicalActivity =\n    OfficeActivity\n    | where TimeGenerated between(ago(starttime) .. ago(endtime))\n    | distinct ClientIP;\nlet recentActivity = OfficeActivity\n    | where TimeGenerated \u003e ago(endtime)\n    | where RecordType =~ szSharePointFileOperation\n    | where Operation in~ (szOperations)\n    | where not( ipv4_is_private( ClientIP))\n    | where OfficeWorkload == \"SharePoint\"\n    | where UserId !startswith \"urn:spo:guest\"\n    | summarize RecentCount = dcount(SourceFileName) by ClientIP,UserId\n    | where RecentCount \u003e threshold\n    | join kind=leftanti historicalActivity on ClientIP\n    | join kind=leftanti ManagedAttempts on $left.ClientIP == $right.IPAddress;\nOfficeActivity\n| where TimeGenerated \u003e= ago(endtime)\n| where RecordType =~ szSharePointFileOperation\n| where Operation in~ (szOperations)\n| where OfficeWorkload == \"SharePoint\"\n| join kind=inner recentActivity on ClientIP,UserId\n| where UserId !startswith \"urn:spo\"\n| where UserId != \"app@sharepoint\"\n| where OfficeObjectId !contains \"Shared Documents/\"",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Exfiltration",
+                                                             "Collection"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1537",
+                                                                "T1213"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "4b11568b-3f5f-4ba1-80c8-7f1dc8390eb7",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "FilesCount":  "RecentCount"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "UserId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ClientIP"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "Site_Url"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "2.0.3"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

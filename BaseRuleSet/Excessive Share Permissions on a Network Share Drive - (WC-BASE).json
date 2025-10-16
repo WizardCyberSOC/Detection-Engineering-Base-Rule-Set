@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/6e8d0f95-c890-4899-87db-c3ff0c19aca5')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/6e8d0f95-c890-4899-87db-c3ff0c19aca5')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Excessive Share Permissions on a Network Share Drive - [WC-BASE]",
+                                             "description":  "The query searches for event 5143, which is triggered when a share is created or changed and includes de share permissions.\n\nFirst it checks to see if this is a whitelisted share for the system (e.g. domaincontroller netlogon, printserver print$ etc.).\n\nThe share permissions are then checked against â€˜allowâ€™ rule (A) for a number of well known overly permissive groups, like all users, guests, authenticated users etc.\n\nIf these are found, an alert is raised so the share creation may be audited.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let timeframe=1h;\r\nlet system_roles = datatable(role:string, system:string)                  // Link roles to systems.\r\n  [\"DC\",\"dc1.corp.local\",\r\n  \"DC\",\"dc2.corp.local\",\r\n  \"PRINT\",\"printer.corp.local\"\r\n  ];\r\nlet share_roles = datatable(role:string, share:string)                    // Link roles to shares.\r\n  [\"DC\", @\"\\\\*\\sysvol\",\r\n  \"DC\",@\"\\\\*\\netlogon\",\r\n  \"PRINT\",@\"\\\\*\\print$\"];\r\nlet allowed_system_shares = system_roles                                  // Link systems to shares.\r\n  | join kind=inner share_roles on role\r\n  | extend system = tolower(system), share = tolower(share)\r\n  | project-away role\r\n  | summarize allowed_shares = make_set(share) by system;\r\nlet monitored_principals=datatable(identifier:string, Group_Name:string)  // Define a data-table with groups to monitor.\r\n  [\"AN\", \"Anonymous Logon\",            // We accept the 'alias' for these well-known SIDS.\r\n  \"AU\", \"Authenticated Users\",\r\n  \"BG\",\"Built-in guests\",\r\n  \"BU\",\"Built-in users\",\r\n  \"DG\",\"Domain guests\",\r\n  \"DU\",\"Domain users\",\r\n  \"WD\",\"Everyone\",\r\n  \"IU\",\"Interactively Logged-on users\",\r\n  \"LG\",\"Local Guest\",\r\n  \"NU\",\"Network logon users\",\r\n  \"513\", \"Domain Users\",                                                  // Support matching on the last part of a SID.\r\n  \"514\", \"Domain Guests\",\r\n  \"545\", \"Builtin Users\",\r\n  \"546\", \"Builtin Guests\",\r\n  \"S-1-5-7\", \"Anonymous Logon\"                                            // For the global SIDS, we accept them as-is.\r\n  ];\r\nSecurityEvent\r\n| where TimeGenerated \u003e= ago(timeframe)\r\n| where EventID == 5143\r\n| extend EventXML = parse_xml(EventData)\r\n| extend OldSD = tostring(EventXML[\"EventData\"][\"Data\"][13][\"#text\"])     // Grab the previous Security Descriptor.\r\n| extend NewSD = tostring(EventXML[\"EventData\"][\"Data\"][14][\"#text\"])     // Grab the new Security Descriptor.\r\n| project-away EventXML\r\n| where tostring(OldSD) !~ tostring(NewSD)                                // Don't bother with unchanged permissions.\r\n| extend system = tolower(Computer), share=tolower(ShareName)             // Normalize system and share name for matching with whitelist.\r\n| join kind=leftouter allowed_system_shares on system                     // Retrieve the allowed shares per system.\r\n| where not(set_has_element(allowed_shares, share))                       // Check if the current share is an allowed share.\r\n| project-away system, share, allowed_shares                              // Get rid of temporary fields.\r\n| extend DACLS = extract_all(@\"(D:(?:\\((?:[\\w\\-]*;){5}(?:[\\w\\-]*)\\))*)\", tostring(NewSD)) // Grab all instances of D:(DACL), in case there are multiple sets.\r\n| project-away OldSD, NewSD                                               // Get rid of data we no longer need.\r\n| mv-expand DACLS to typeof(string)                                       // In case there are any duplicate/subsequent D: entries (e.g., D:\u003cdacls\u003eS:\u003csacls\u003eD:\u003cdacls\u003e) split them out to individual D: sets.\r\n| extend DACLS = substring(DACLS,2)                                       // Strip the leading D:.\r\n| extend DACLS = split(DACLS, \")\")                                        // Split the sets of DACLS ()() to an array of individual DACLS (). This removes the trailing ) character.\r\n| mv-expand DACLS to typeof(string)                                       // Duplicate the records in such a way that only 1 DACL per record exist. We will aggregate them back later.\r\n| extend DACLS = substring(DACLS, 1)                                      // Also remove the leading ( character.\r\n| where not(isempty(DACLS)) and DACLS startswith \"A;\"                     // Remove any empty or non-allow DACLs.\r\n| extend allowed_principal = tostring(split(DACLS,\";\",5)[0])              // Grab the SID what is affected by this DACL.\r\n| extend allowed_principal = iff(not(allowed_principal startswith \"S-\" and string_size(allowed_principal) \u003e 15), allowed_principal, split(allowed_principal,\"-\",countof(allowed_principal,\"-\"))[0]) // This line takes only the last part (e.g., 513) of a long SID, so you can refer to groups/users without needing to supply the full SID above.\r\n| join kind=inner monitored_principals on $left.allowed_principal == $right.identifier // Join the found groups to the table of groups to be monitored above. Adds the more readable 'group_name).\r\n| project-away allowed_principal, identifier, DACLS\r\n| summarize Authorized_Public_Principals = make_set(Group_Name), take_any(*) by TimeGenerated, SourceComputerId, EventData // Summarize the fields back, making a set of the various group_name values for this record.\r\n| project-away Group_Name\r\n// Begin client-specific filter.\r\n// End client-specific filter.\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Discovery",
+                                                             "Collection"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1135",
+                                                                "T1039"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceId"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

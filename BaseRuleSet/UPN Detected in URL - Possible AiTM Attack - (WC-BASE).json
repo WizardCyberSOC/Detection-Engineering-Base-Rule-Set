@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a39765de-9701-41b3-836c-41bbe5535dd3')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a39765de-9701-41b3-836c-41bbe5535dd3')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "UPN Detected in URL - Possible AiTM Attack - [WC-BASE]",
+                                             "description":  "This rule detects when a user's UPN appears in a remote URL initiated by a browser process (chrome.exe, msedge.exe, firefox.exe). This behavior is uncommon under normal circumstances and may indicate an Adversary-in-the-Middle (AiTM) attack attempting to capture session data, phishing, or credential misuse.",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "let GetUsersUPN = DeviceNetworkEvents\r\n| union DeviceLogonEvents\r\n| union DeviceEvents\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where isnotempty(InitiatingProcessAccountUpn)\r\n    | summarize arg_max(TimeGenerated, *) by DeviceName, InitiatingProcessAccountUpn\r\n    | project DeviceName, UPN = InitiatingProcessAccountUpn;\r\nDeviceNetworkEvents\r\n| where TimeGenerated \u003e ago(1h)\r\n| where ActionType == \"ConnectionSuccess\"\r\n| where InitiatingProcessFileName in (\"chrome.exe\", \"msedge.exe\", \"firefox.exe\")\r\n| join kind=leftouter GetUsersUPN on DeviceName\r\n| extend InitiatingProcessAccountUpn = iff(isempty( InitiatingProcessAccountUpn),UPN,InitiatingProcessAccountUpn)\r\n| where isnotempty( InitiatingProcessAccountUpn)\r\n| where not(ipv4_is_private( RemoteIP))\r\n| where RemoteUrl has (InitiatingProcessAccountUpn)\r\n| extend Domain = extract(@\"https?:\\/\\/([^\\/]+)\", 1, RemoteUrl)\r\n| project\r\n    TimeGenerated,\r\n    InitiatingProcessAccountUpn,\r\n    Domain,\r\n    RemoteUrl,\r\n    InitiatingProcessFileName,\r\n    ActionType,\r\n    DeviceName,\r\n    DeviceId,\r\n    RemoteIP,\r\n    RemotePort",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Reconnaissance",
+                                                             "InitialAccess",
+                                                             "ResourceDevelopment",
+                                                             "CredentialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1598",
+                                                                "T1566",
+                                                                "T1078",
+                                                                "T1586",
+                                                                "T1539"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "InitiatingProcessAccountUpn"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "RemoteUrl"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

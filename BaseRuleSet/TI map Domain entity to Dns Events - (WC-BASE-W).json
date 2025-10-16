@@ -1,0 +1,102 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/633699de-30a9-49a0-a06c-65910a44f6ec')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/633699de-30a9-49a0-a06c-65910a44f6ec')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "TI map Domain entity to Dns Events - [WC-BASE-W]",
+                                             "description":  "Identifies a match in DNS events from any Domain IOC from TI\nThis analytic rule uses [ASIM](https://aka.ms/AboutASIM) and supports any built-in or custom source that supports the ASIM DNS schema'",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let HAS_ANY_MAX = 10000;\nlet dt_lookBack = 1h;\nlet ioc_lookBack = 14d;\nlet DomainTIs= ThreatIntelIndicators\n    | where TimeGenerated \u003e ago(14d)\n    | distinct TIEntity = ObservableValue;\nlet Domains = DomainTIs\n    | where isnotempty(TIEntity)\n    | summarize NDomains=dcount(TIEntity), DomainsList=make_set(TIEntity) \n    | project DomainList = iff(NDomains \u003e HAS_ANY_MAX, dynamic([]), DomainsList);\nDomainTIs\n| join (\n    _Im_Dns(starttime=ago(dt_lookBack), domain_has_any=toscalar(Domains))\n    | extend DNS_TimeGenerated = TimeGenerated\n    )\n    on $left.TIEntity == $right.DnsQuery\n| project\n    DNS_TimeGenerated,\n    Dvc,\n    SrcIpAddr,\n    DnsQuery,\n    DnsQueryType\n| extend\n    timestamp = DNS_TimeGenerated,\n    HostCustomEntity = Dvc,\n    IPCustomEntity = SrcIpAddr\n| join kind=inner DeviceNetworkEvents on $left.DnsQuery == $right.RemoteUrl, $left.IPCustomEntity == $right.LocalIP\n| project\n    TimeGenerated,\n    ActionType,\n    DeviceName,\n    DeviceId,\n    InitiatingProcessAccountUpn,\n    LocalIP,\n    InitiatingProcessFileName,\n    RemoteUrl,\n    RemoteIP,\n    RemotePort\n| where ActionType == \"ConnectionSuccess\"\n| where isnotempty(RemoteUrl)\n// WHITELIST START\n| extend RuleName = 'TI map Domain entity to Dns Events'\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\n) on RuleName\n| project-away RuleName,RuleName1\n| extend Tuning01 = todynamic(Tuning01)\n| where not(  (TicketIDs contains \"3017820\" and isnotempty(Tuning01)) and Tuning01 has RemoteUrl)\n| where not(  (TicketIDs contains \"2646616\" and isnotempty(Tuning01)) and set_has_element( Tuning01,RemoteUrl))\n| project-away Tuning*,TicketIDs\n// WHITELIST END\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1071"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "999e9f5d-db4a-4b07-a206-29c4e667b7e8",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "RemoteIP"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "RemoteUrl"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  "1.1.8"
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

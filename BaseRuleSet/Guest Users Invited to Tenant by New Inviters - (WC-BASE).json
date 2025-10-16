@@ -1,0 +1,91 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/3bf27f22-989c-4e19-af5a-14ab3c9f7cf8')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/3bf27f22-989c-4e19-af5a-14ab3c9f7cf8')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Guest Users Invited to Tenant by New Inviters - [WC-BASE]",
+                                             "description":  "Detects when a Guest User is added by a user account that has not been seen adding a guest in the previous 14 days.\n  Monitoring guest accounts and the access they are provided is important to detect potential account abuse.\n  Accounts added should be investigated to ensure the activity was legitimate.\n  Ref: https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-user-accounts#monitoring-for-failed-unusual-sign-ins",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let GetRiskyUsers = SigninLogs\n| where TimeGenerated \u003e ago(1d)\n| where RiskEventTypes != \"[]\" or RiskEventTypes_V2 != \"[]\"\n| distinct UserPrincipalName\n| extend UserPrincipalName = tolower(UserPrincipalName);\nlet inviting_users = (AuditLogs\n    | where TimeGenerated between(ago(14d) .. ago(1d))\n    | where OperationName =~ \"Invite external user\"\n    | where Result =~ \"success\"\n    | extend invitingUser = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\n    | where isnotempty(invitingUser)\n    | summarize by invitingUser);\nAuditLogs\n| where TimeGenerated \u003e ago(1d)\n| where OperationName =~ \"Invite external user\"\n| where Result =~ \"success\"\n| extend invitingUser = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\n| where isnotempty(invitingUser) and invitingUser !in (inviting_users)\n| extend invitedUserPrincipalName = tostring(TargetResources[0].userPrincipalName)\n| extend ipAddress = tostring(parse_json(tostring(InitiatedBy.user)).ipAddress)\n| extend invitingUser = tolower(invitingUser)\n| join kind=inner GetRiskyUsers on $left.invitingUser == $right.UserPrincipalName\n",
+                                             "queryFrequency":  "P1D",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence",
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1098",
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "572e75ef-5147-49d9-9d65-13f2ed1e3a86",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "InvitingUser":  "invitingUser"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "invitedUserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ipAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

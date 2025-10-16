@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/ef537aa0-dabd-4795-b3ef-4214a2c711fb')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/ef537aa0-dabd-4795-b3ef-4214a2c711fb')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Service Principal Authentication Attempt from New Country - [WC-BASE]",
+                                             "description":  "Detects when there is a Service Principal login attempt from a country that has not seen a successful login in the previous 14 days.\n  Threat actors may attempt to authenticate with credentials from compromised accounts - monitoring attempts from anomalous locations may help identify these attempts.\n  Authentication attempts should be investigated to ensure the activity was legitimate and if there is other similar activity.\n  Ref: https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-user-accounts#monitoring-for-failed-unusual-sign-ins",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "let known_locations = (\n    AADServicePrincipalSignInLogs\n    | where TimeGenerated between(ago(14d) .. ago(1h))\n    | where ResultType == 0\n    | summarize by Location);\nAADServicePrincipalSignInLogs\n| where TimeGenerated \u003e ago(1h)\n| where ResultType == 0\n| where Location !in (known_locations)\n| extend City = tostring(parse_json(LocationDetails).city)\n| extend State = tostring(parse_json(LocationDetails).state)\n| extend Place = strcat(City, \" - \", State)\n| extend Result = strcat(tostring(ResultType), \" - \", ResultDescription)\n| summarize\n    FirstSeen=min(TimeGenerated),\n    LastSeen=max(TimeGenerated),\n    make_set(Result),\n    make_set(Place)\n    by ServicePrincipalName, Location,IPAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "InitialAccess"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "1baaaf00-655f-4de9-8ff8-312e902cda71",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Location":  "Location"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "ServicePrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
