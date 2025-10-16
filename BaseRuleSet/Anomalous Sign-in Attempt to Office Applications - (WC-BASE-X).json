@@ -1,0 +1,123 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/667a8739-e3b2-49db-8029-3c2802f93133')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/667a8739-e3b2-49db-8029-3c2802f93133')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Anomalous Sign-in Attempt to Office Applications - [WC-BASE-X]",
+                                             "description":  "This rule looks for successful sign-in attempts to Office applications from a state the user did not sign-in from before in the last 14 days. Anomalous Office apps sign-in attempts are often associated with session hijacking and Evilginx attacks. The rule's events provide the user's clicked URLs in the last 24 hours, to check whether a phishing URL was clicked or not. To escalate this rule, please make sure to provide evidence (email, URL, attachment) that indicates that this was a phishing attempt.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let URLClicks = UrlClickEvents\r\n    | where TimeGenerated \u003e ago(24h)\r\n    | summarize ClickedURLs = make_set(Url) by AccountUpn;\r\nlet FamiliarLocation = \r\n    SigninLogs\r\n    | where TimeGenerated between (ago(14d) .. ago(1h))\r\n    | where ResultType == 0\r\n    | where isnotempty(Location)\r\n    | extend Country = Location\r\n    | extend State = iff(isempty(LocationDetails.state), \"Null\", LocationDetails.state)\r\n    | extend Location = strcat(Country, '-', State)\r\n    | summarize FamiliarLocations = make_set(Location) by UserPrincipalName;\r\nlet ManagedAttempts = \r\n    SigninLogs\r\n    | union AADNonInteractiveUserSignInLogs\r\n    | where TimeGenerated \u003e ago(14d)\r\n    | where (tostring(parse_json(DeviceDetail_dynamic).trustType) != \"\" or tostring(parse_json(DeviceDetail_string).trustType) != \"\") or (DeviceDetail_dynamic or DeviceDetail_string contains \"PII Removed\")\r\n    | distinct IPAddress;\r\nSigninLogs\r\n| where TimeGenerated \u003e ago(1h)\r\n| where ResultType == 0\r\n| where isnotempty(Location)\r\n| extend Country = Location\r\n| where isnotempty(LocationDetails.state)\r\n| extend State = iff(isempty(LocationDetails.state), \"Null\", LocationDetails.state)\r\n| extend Location =  strcat(Country, '-', State)\r\n| join kind=inner FamiliarLocation on UserPrincipalName\r\n| join kind=leftanti ManagedAttempts on IPAddress\r\n| where FamiliarLocations !has Location\r\n| where AppDisplayName in~ (\"OfficeHome\", \"Office 365\", \"Microsoft Office\", \"Office 365 Exchange Online\")\r\n| join kind=leftouter URLClicks on $left.UserPrincipalName == $right.AccountUpn\r\n| project\r\n    TimeGenerated,\r\n    UserPrincipalName,\r\n    IPAddress,\r\n    Location,\r\n    FamiliarLocations,\r\n    AppDisplayName,\r\n    DeviceDetail,\r\n    UserAgent,\r\n    ResultType,\r\n    ResultDescription,\r\n    Status,\r\n    AuthenticationDetails,\r\n    AuthenticationRequirement,\r\n    ClientAppUsed,\r\n    RiskEventTypes,\r\n    RiskEventTypes_V2,\r\n    ClickedURLs\r\n| extend IPSubnet = iff(\r\n    indexof(IPAddress, \":\") != -1,  // If colon exists, it's IPv6\r\n    trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \":\", indexof(IPAddress, \":\") + 1))),\r\n    trim(\" \", substring(IPAddress, 0, indexof(IPAddress, \".\", indexof(IPAddress, \".\") + 1)))\r\n)\r\n| join kind=leftouter UsersInfo_CL on $left.UserPrincipalName == $right.UserPrincipalName_s\r\n| where not( FamiliarIPSubnets_s has IPSubnet and FamiliarLocations_s has Location)",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "ResourceDevelopment",
+                                                             "InitialAccess",
+                                                             "CredentialAccess",
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1586",
+                                                                "T1078",
+                                                                "T1566",
+                                                                "T1111",
+                                                                "T1557",
+                                                                "T1090",
+                                                                "T1539"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "UserPrincipalName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "IPAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Location"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "ClickedURLs"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AppDisplayName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

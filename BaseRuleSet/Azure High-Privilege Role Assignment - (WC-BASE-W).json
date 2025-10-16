@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8e7a7bac-46c8-44ac-9996-ed81b653a1b9')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8e7a7bac-46c8-44ac-9996-ed81b653a1b9')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Azure High-Privilege Role Assignment - [WC-BASE-W]",
+                                             "description":  "This alert triggers whenever a user is assigned one of the following Azure roles:\n1) Owner\n2) Contributor\n3) User Access Administrator",
+                                             "severity":  "High",
+                                             "enabled":  true,
+                                             "query":  "AzureActivity \r\n| where (OperationNameValue == 'MICROSOFT.AUTHORIZATION/ROLEASSIGNMENTS/WRITE')\r\n| where ActivityStatusValue == \"Success\"\r\n| where Caller contains \"@\" // Filter for users\r\n| extend RoleAssignmentProperties = tostring(parse_json(Authorization).evidence)\r\n| project\r\n    TimeGenerated,\r\n    Caller,\r\n    CallerIpAddress,\r\n    ActivityStatusValue,\r\n    Role = tostring(parse_json(RoleAssignmentProperties).role),\r\n    Scope = tostring(parse_json(RoleAssignmentProperties).roleAssignmentScope)\r\n| where Role in (\"Owner\", \"Contributor\", \"User Access Administrator\")\r\n// WHITELIST START\r\n| extend RuleName = 'Azure High-Privilege Role Assignment'\r\n| join kind=leftouter (_GetWatchlist('WizardCyberAnalyticalRulesTuning')\r\n) on RuleName\r\n| project-away RuleName,RuleName1\r\n| extend Tuning01 = todynamic(Tuning01)\r\n| where not(  (TicketIDs contains \"3017948\" and isnotempty(Tuning01)) and Tuning01.[0] == Caller )\r\n| project-away Tuning*,TicketIDs\r\n// WHITELIST END\r\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "PrivilegeEscalation"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "AssignedRole":  "Role"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "Caller"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "CallerIpAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
