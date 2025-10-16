@@ -15,7 +15,6 @@ on:
      paths:
      - 'BaseRuleSet/**'
      - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
-     - '.github/workflows/sentinel-deploy-328e2f56-dbd4-4924-85ee-c8d122c80f38.yml'
      # workflow_dispatch:
 
 jobs:
@@ -126,5 +125,6 @@ jobs:
           ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-328e2f56-dbd4-4924-85ee-c8d122c80f38.ps1
 
           
+
 
 
