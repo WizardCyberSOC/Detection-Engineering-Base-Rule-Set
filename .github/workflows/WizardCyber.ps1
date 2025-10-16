@@ -97,73 +97,8 @@ $resourceTypes = $contentTypes.Split(",") | ForEach-Object { $contentTypeMapping
 $MaxRetries = 3
 $secondsBetweenAttempts = 5
 
-#Converts hashtable to string that can be set as content when pushing csv file
-function ConvertTableToString {
-    $output = "FileName, CommitSha`n"
-    $global:updatedCsvTable.GetEnumerator() | ForEach-Object {
-        $key = RelativePathWithBackslash $_.Key
-        $output += "{0},{1}`n" -f $key, $_.Value
-    }
-    return $output
-}
-
 $header = @{
     "authorization" = "Bearer $githubAuthToken"
-}
-
-#Gets all files and commit shas using Get Trees API
-function GetGithubTree {
-    $branchResponse = AttemptInvokeRestMethod "Get" "https://api.github.com/repos/$githubRepository/branches/$branchName" $null $null 3
-    $treeUrl = "https://api.github.com/repos/$githubRepository/git/trees/" + $branchResponse.commit.sha + "?recursive=true"
-    $getTreeResponse = AttemptInvokeRestMethod "Get" $treeUrl $null $null 3
-    return $getTreeResponse
-}
-
-#Creates a table using the reponse from the tree api, creates a table
-function GetCommitShaTable($getTreeResponse) {
-    $shaTable = @{}
-    $supportedExtensions = @(".json", ".bicep", ".bicepparam");
-    $getTreeResponse.tree | ForEach-Object {
-        $truePath = AbsolutePathWithSlash $_.path
-        if ((([System.IO.Path]::GetExtension($_.path) -in $supportedExtensions)) -or ($truePath -eq $configPath))
-        {
-            $shaTable.Add($truePath, $_.sha)
-        }
-    }
-    return $shaTable
-}
-
-function PushCsvToRepo() {
-    $content = ConvertTableToString
-    $relativeCsvPath = RelativePathWithBackslash $csvPath
-    $resourceBranchExists = git ls-remote --heads "https://github.com/$githubRepository" $newResourceBranch | wc -l
-
-    if ($resourceBranchExists -eq 0) {
-        git switch --orphan $newResourceBranch
-        git commit --allow-empty -m "Initial commit on orphan branch"
-        git push -u origin $newResourceBranch
-        New-Item -ItemType "directory" -Path ".sentinel"
-    } else {
-        git fetch > $null
-        git checkout $newResourceBranch
-    }
-
-    Write-Output $content > $relativeCsvPath
-    git add $relativeCsvPath
-    git commit -m "Modified tracking table"
-    git push -u origin $newResourceBranch
-    git checkout $branchName
-}
-
-function ReadCsvToTable {
-    $csvTable = Import-Csv -Path $csvPath
-    $HashTable=@{}
-    foreach($r in $csvTable)
-    {
-        $key = AbsolutePathWithSlash $r.FileName
-        $HashTable[$key]=$r.CommitSha
-    }
-    return $HashTable
 }
 
 function AttemptInvokeRestMethod($method, $url, $body, $contentTypes, $maxRetries) {
@@ -1013,3 +948,4 @@ function main() {
 }
 
 main
+
