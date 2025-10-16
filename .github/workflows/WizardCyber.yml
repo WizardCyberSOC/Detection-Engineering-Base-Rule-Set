@@ -14,8 +14,8 @@ on:
     branches: [ main ]
     paths:
     - 'BaseRuleSet/**'
-    - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
     - 'WizardCyber/**'
+    - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
 
 jobs:
   BaseRulesDeployment:
@@ -92,7 +92,7 @@ jobs:
       id: changed-files
       shell: pwsh
       run: |
-        # Get list of changed JSON files in BaseRuleSet/ directory
+        # Get list of changed JSON files in BaseRuleSet/ directory (excluding BaseRuleSetThirdParty)
         $changedFiles = git diff --name-only HEAD~1 HEAD -- 'BaseRuleSet/*.json'
         $changedFilesString = $changedFiles -join ','
         echo "changed_files=$changedFilesString" >> $env:GITHUB_OUTPUT
@@ -104,6 +104,14 @@ jobs:
         echo "deleted_files=$deletedFilesString" >> $env:GITHUB_OUTPUT
         echo "Deleted files: $deletedFilesString"
         
+        # Check if BaseRuleSet files changed
+        $baseRuleSetChanged = git diff --name-only HEAD~1 HEAD -- 'BaseRuleSet/**' | Where-Object { $_ -like '*.json' }
+        if ($baseRuleSetChanged) {
+          echo "baseruleset_changed=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "baseruleset_changed=false" >> $env:GITHUB_OUTPUT
+        }
+        
         # If no specific rule files changed or deleted, we don't need to deploy anything
         if ([string]::IsNullOrWhiteSpace($changedFilesString) -and [string]::IsNullOrWhiteSpace($deletedFilesString)) {
           echo "No JSON rule files changed or deleted, skipping deployment"
@@ -113,7 +121,7 @@ jobs:
         }
       
     - name: Deploy Content to Microsoft Sentinel
-      if: steps.changed-files.outputs.skip_deployment == 'false'
+      if: steps.changed-files.outputs.skip_deployment == 'false' && steps.changed-files.outputs.baseruleset_changed == 'true'
       uses: azure/powershell@v2
       with:
         azPSVersion: 'latest'
@@ -210,6 +218,14 @@ jobs:
         echo "deleted_files=$deletedFilesString" >> $env:GITHUB_OUTPUT
         echo "Deleted files: $deletedFilesString"
         
+        # Check if WizardCyber files changed
+        $wizardCyberChanged = git diff --name-only HEAD~1 HEAD -- 'WizardCyber/**' | Where-Object { $_ -like '*.json' }
+        if ($wizardCyberChanged) {
+          echo "wizardcyber_changed=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "wizardcyber_changed=false" >> $env:GITHUB_OUTPUT
+        }
+        
         # If no specific rule files changed or deleted, we don't need to deploy anything
         if ([string]::IsNullOrWhiteSpace($changedFilesString) -and [string]::IsNullOrWhiteSpace($deletedFilesString)) {
           echo "No JSON rule files changed or deleted, skipping deployment"
@@ -219,7 +235,7 @@ jobs:
         }
       
     - name: Deploy Content to Microsoft Sentinel
-      if: steps.changed-files.outputs.skip_deployment == 'false'
+      if: steps.changed-files.outputs.skip_deployment == 'false' && steps.changed-files.outputs.wizardcyber_changed == 'true'
       uses: azure/powershell@v2
       with:
         azPSVersion: 'latest'

@@ -764,8 +764,12 @@ function ProcessDeletedFiles() {
                     $totalDeleted++
                     Write-Host "[Info] Successfully processed deletion of rule $ruleId"
                     
-                    # Remove from tracking table if it exists
-                    $absolutePath = Join-Path $rootDirectory $relativePath
+                    # Remove from tracking table if it exists - handle WizardCyber path correctly
+                    $fileName = $relativePath
+                    if ($relativePath.StartsWith("WizardCyber/")) {
+                        $fileName = $relativePath.Substring("WizardCyber/".Length)
+                    }
+                    $absolutePath = Join-Path $rootDirectory $fileName
                     if ($global:updatedCsvTable.ContainsKey($absolutePath)) {
                         $global:updatedCsvTable.Remove($absolutePath)
                         Write-Host "[Info] Removed $absolutePath from tracking table"
@@ -844,12 +848,18 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
             $changedFileArray | ForEach-Object {
                 $relativePath = $_.Trim()
                 if (-not [string]::IsNullOrEmpty($relativePath)) {
-                    $absolutePath = Join-Path $rootDirectory $relativePath
+                    # Handle WizardCyber path correctly - remove WizardCyber prefix if present since rootDirectory already points to WizardCyber
+                    $fileName = $relativePath
+                    if ($relativePath.StartsWith("WizardCyber/")) {
+                        $fileName = $relativePath.Substring("WizardCyber/".Length)
+                    }
+                    $absolutePath = Join-Path $rootDirectory $fileName
                     if (Test-Path $absolutePath) {
                         Write-Host "[Info] Adding changed file to deployment: $absolutePath"
                         $iterationList += $absolutePath
                     } else {
                         Write-Host "[Warning] Changed file not found: $absolutePath"
+                        Write-Host "[Debug] Tried path: $absolutePath (from relativePath: $relativePath, fileName: $fileName, rootDirectory: $rootDirectory)"
                     }
                 }
             }
@@ -974,6 +984,16 @@ function TryGetCsvFile {
 function main() {
     git config --global user.email "donotreply@microsoft.com"
     git config --global user.name "Sentinel"
+
+    # Debug: Print environment variables
+    Write-Host "[Debug] Environment Variables:"
+    Write-Host "[Debug] rootDirectory: $rootDirectory"
+    Write-Host "[Debug] Directory: $Directory"
+    Write-Host "[Debug] ChangedFiles: '$ChangedFiles'"
+    Write-Host "[Debug] DeletedFiles: '$DeletedFiles'"
+    Write-Host "[Debug] smartDeployment: $smartDeployment"
+    Write-Host "[Debug] WorkspaceName: $WorkspaceName"
+    Write-Host "[Debug] ResourceGroupName: $ResourceGroupName"
 
     # Early exit if no files changed and we're in selective mode
     if (-not [string]::IsNullOrEmpty($ChangedFiles)) {
