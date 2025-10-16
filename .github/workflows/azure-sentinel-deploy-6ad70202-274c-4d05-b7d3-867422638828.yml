@@ -92,5 +92,6 @@ jobs:
         azPSVersion: 'latest'
         inlineScript: |
 
-          ${{ github.workspace }}//.github/workflows/Sandbox.ps1
+          ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-6ad70202-274c-4d05-b7d3-867422638828.ps1
+
 
