@@ -841,7 +841,6 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
                 }
             }
         }
-        PushCsvToRepo
         if ($totalFiles -gt 0 -and $totalFailed -gt 0)
         {
             $err = "$totalFailed of $totalFiles deployments failed."
@@ -917,6 +916,7 @@ function main() {
 }
 
 main
+
 
 
 
