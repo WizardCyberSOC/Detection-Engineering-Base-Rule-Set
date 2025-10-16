@@ -166,14 +166,25 @@ function PushCsvToRepo() {
 }
 
 function ReadCsvToTable {
-    $csvTable = Import-Csv -Path $csvPath
-    $HashTable=@{}
-    foreach($r in $csvTable)
-    {
-        $key = AbsolutePathWithSlash $r.FileName
-        $HashTable[$key]=$r.CommitSha
+    if (-not (Test-Path $csvPath)) {
+        Write-Host "[Info] CSV tracking file not found at $csvPath, starting with empty table"
+        return @{}
     }
-    return $HashTable
+    
+    try {
+        $csvTable = Import-Csv -Path $csvPath
+        $HashTable=@{}
+        foreach($r in $csvTable)
+        {
+            $key = AbsolutePathWithSlash $r.FileName
+            $HashTable[$key]=$r.CommitSha
+        }
+        return $HashTable
+    }
+    catch {
+        Write-Host "[Warning] Failed to read CSV file $csvPath, starting with empty table. Error: $_"
+        return @{}
+    }
 }
 
 function AttemptInvokeRestMethod($method, $url, $body, $contentTypes, $maxRetries) {
@@ -969,6 +980,9 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
 }
 
 function TryGetCsvFile {
+    # Initialize with empty table in case no CSV exists
+    $global:localCsvTablefinal = @{}
+    
     if (Test-Path $csvPath) {
         $global:localCsvTablefinal = ReadCsvToTable
         Remove-Item -Path $csvPath
