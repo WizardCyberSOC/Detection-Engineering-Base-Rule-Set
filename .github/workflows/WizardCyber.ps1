@@ -507,24 +507,130 @@ function GetParameterFile($path) {
     return $null
 }
 
-function ExtractRuleIdFromJsonFile($filePath) {
+function CheckRuleExistsInSentinel($templateObject) {
+    # Extract rule information from template
     try {
-        if (Test-Path $filePath) {
-            $jsonContent = Get-Content $filePath | Out-String | ConvertFrom-Json
-            if ($jsonContent.resources -and $jsonContent.resources.Length -gt 0) {
-                $resource = $jsonContent.resources[0]
-                if ($resource.name) {
-                    # Extract GUID from the name pattern like "/Microsoft.SecurityInsights/a2c011a6-3986-411a-9e27-286d018e1b65"
-                    $namePattern = $resource.name
-                    if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
-                        return $matches[1]
-                    }
+        if ($templateObject.resources -and $templateObject.resources.Length -gt 0) {
+            $resource = $templateObject.resources[0]
+            
+            # Extract rule ID from multiple possible locations
+            $ruleId = $null
+            
+            # Method 1: Extract from 'id' field (ARM template expression)
+            if ($resource.id) {
+                $idPattern = $resource.id
+                # Look for GUID at the end of the ARM expression: /alertRules/GUID')]
+                if ($idPattern -match "/alertRules/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Extracted rule ID from 'id' field: $ruleId"
                 }
             }
+            
+            # Method 2: Extract from 'name' field (fallback)
+            if (-not $ruleId -and $resource.name) {
+                $namePattern = $resource.name
+                if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Extracted rule ID from 'name' field: $ruleId"
+                }
+            }
+            
+            if ($ruleId) {
+                Write-Host "[Info] Checking if rule with ID '$ruleId' already exists in Sentinel"
+                
+                # Try to get the rule from Sentinel
+                try {
+                    $existingRule = Get-AzSentinelAlertRule -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -RuleId $ruleId -ErrorAction SilentlyContinue
+                    if ($existingRule) {
+                        Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel. Display Name: '$($existingRule.DisplayName)'"
+                        return $true
+                    } else {
+                        Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
+                        return $false
+                    }
+                }
+                catch {
+                    # If Az.SecurityInsights cmdlet fails, try alternative method using generic Get-AzResource
+                    Write-Host "[Warning] Az.SecurityInsights cmdlet failed, trying generic Get-AzResource. Error: $_"
+                    try {
+                        $resourceName = "$WorkspaceName/Microsoft.SecurityInsights/$ruleId"
+                        $existingRule = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType "Microsoft.OperationalInsights/workspaces/providers/alertRules" -Name $resourceName -ErrorAction SilentlyContinue
+                        if ($existingRule) {
+                            Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel (found via Get-AzResource)"
+                            return $true
+                        } else {
+                            Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
+                            return $false
+                        }
+                    }
+                    catch {
+                        Write-Host "[Warning] Could not check rule existence using Get-AzResource. Error: $_"
+                        # If we can't check, assume it doesn't exist to allow deployment
+                        return $false
+                    }
+                }
+            } else {
+                Write-Host "[Warning] Could not extract rule ID from template"
+                return $false
+            }
+        } else {
+            Write-Host "[Warning] No resources found in template"
+            return $false
         }
     }
     catch {
-        Write-Host "[Error] Failed to extract rule ID from $filePath. Error: $_"
+        Write-Host "[Warning] Error checking rule existence: $_"
+        return $false
+    }
+}
+
+function ExtractRuleIdFromJsonContent($jsonContent) {
+    # Extract rule ID from JSON content for deleted files
+    try {
+        if ($jsonContent.resources -and $jsonContent.resources.Length -gt 0) {
+            $resource = $jsonContent.resources[0]
+            $ruleId = $null
+            
+            # Method 1: Extract from 'id' field (ARM template expression)
+            if ($resource.id) {
+                $idPattern = $resource.id
+                # Look for GUID at the end of the ARM expression: /alertRules/GUID')]
+                if ($idPattern -match "/alertRules/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Successfully extracted rule ID from 'id' field: $ruleId"
+                    return $ruleId
+                }
+            }
+            
+            # Method 2: Extract from 'name' field (fallback)
+            if (-not $ruleId -and $resource.name) {
+                $namePattern = $resource.name
+                if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Successfully extracted rule ID from 'name' field: $ruleId"
+                    return $ruleId
+                }
+            }
+            
+            # Method 3: Look for any GUID pattern in the entire resource object (last resort)
+            if (-not $ruleId) {
+                $resourceJson = $resource | ConvertTo-Json -Depth 10
+                if ($resourceJson -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
+                    $ruleId = $matches[1]
+                    Write-Host "[Info] Successfully extracted rule ID from resource JSON pattern: $ruleId"
+                    return $ruleId
+                }
+            }
+            
+            if (-not $ruleId) {
+                Write-Host "[Warning] Could not find GUID pattern in resource"
+            }
+        } else {
+            Write-Host "[Warning] No resources found in JSON content"
+        }
+    }
+    catch {
+        Write-Host "[Warning] Error extracting rule ID from JSON content: $_"
     }
     return $null
 }
@@ -631,96 +737,6 @@ function DeleteSentinelRule($ruleId) {
     }
 }
 
-function CheckRuleExistsInSentinel($templateObject) {
-    # Extract rule information from template
-    try {
-        if ($templateObject.resources -and $templateObject.resources.Length -gt 0) {
-            $resource = $templateObject.resources[0]
-            
-            # Extract rule ID from the name pattern
-            if ($resource.name) {
-                $namePattern = $resource.name
-                if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
-                    $ruleId = $matches[1]
-                    Write-Host "[Info] Checking if rule with ID '$ruleId' already exists in Sentinel"
-                    
-                    # Try to get the rule from Sentinel
-                    try {
-                        $existingRule = Get-AzSentinelAlertRule -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -RuleId $ruleId -ErrorAction SilentlyContinue
-                        if ($existingRule) {
-                            Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel. Display Name: '$($existingRule.DisplayName)'"
-                            return $true
-                        } else {
-                            Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
-                            return $false
-                        }
-                    }
-                    catch {
-                        # If Az.SecurityInsights cmdlet fails, try alternative method using generic Get-AzResource
-                        Write-Host "[Warning] Az.SecurityInsights cmdlet failed, trying generic Get-AzResource. Error: $_"
-                        try {
-                            $resourceName = "$WorkspaceName/Microsoft.SecurityInsights/$ruleId"
-                            $existingRule = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType "Microsoft.OperationalInsights/workspaces/providers/alertRules" -Name $resourceName -ErrorAction SilentlyContinue
-                            if ($existingRule) {
-                                Write-Host "[Info] Rule with ID '$ruleId' already exists in Sentinel (found via Get-AzResource)"
-                                return $true
-                            } else {
-                                Write-Host "[Info] Rule with ID '$ruleId' does not exist in Sentinel"
-                                return $false
-                            }
-                        }
-                        catch {
-                            Write-Host "[Warning] Could not check rule existence using Get-AzResource. Error: $_"
-                            # If we can't check, assume it doesn't exist to allow deployment
-                            return $false
-                        }
-                    }
-                } else {
-                    Write-Host "[Warning] Could not extract rule ID from name pattern: $namePattern"
-                    return $false
-                }
-            } else {
-                Write-Host "[Warning] No name property found in template resource"
-                return $false
-            }
-        } else {
-            Write-Host "[Warning] No resources found in template"
-            return $false
-        }
-    }
-    catch {
-        Write-Host "[Warning] Error checking rule existence: $_"
-        return $false
-    }
-}
-
-function ExtractRuleIdFromJsonContent($jsonContent) {
-    # Extract rule ID from JSON content for deleted files
-    try {
-        if ($jsonContent.resources -and $jsonContent.resources.Length -gt 0) {
-            $resource = $jsonContent.resources[0]
-            if ($resource.name) {
-                # Extract GUID from the name pattern
-                $namePattern = $resource.name
-                if ($namePattern -match "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})") {
-                    Write-Host "[Info] Successfully extracted rule ID from JSON content: $($matches[1])"
-                    return $matches[1]
-                } else {
-                    Write-Host "[Warning] Could not find GUID pattern in name: $namePattern"
-                }
-            } else {
-                Write-Host "[Warning] No name property found in resource"
-            }
-        } else {
-            Write-Host "[Warning] No resources found in JSON content"
-        }
-    }
-    catch {
-        Write-Host "[Warning] Error extracting rule ID from JSON content: $_"
-    }
-    return $null
-}
-
 function ProcessDeletedFiles() {
     if ([string]::IsNullOrEmpty($DeletedFiles)) {
         Write-Host "[Info] No files were deleted"
@@ -771,6 +787,45 @@ function ProcessDeletedFiles() {
     
     if ($totalDeleteFailed -gt 0) {
         Write-Host "[Warning] Some rule deletions failed. Check the logs above for details."
+    }
+}
+
+function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameterFile, $templateObject, $templateType) {
+    try {
+        $skip = $false
+        $isSuccess = $null
+        
+        # Check if rule already exists in Sentinel (for logging purposes only)
+        $ruleExists = CheckRuleExistsInSentinel $templateObject
+        if ($ruleExists) {
+            Write-Host "[Info] Rule already exists in Sentinel - will update it with new changes from $path"
+        } else {
+            Write-Host "[Info] Rule does not exist in Sentinel - will create new rule from $path"
+        }
+        
+        if (!$fullDeploymentFlag) {
+            $existingSha = $global:localCsvTablefinal[$path]
+            $remoteSha = $remoteShaTable[$path]
+            $skip = (($existingSha) -and ($existingSha -eq $remoteSha))
+            if ($skip -and $parameterFile) {
+                $existingShaForParameterFile = $global:localCsvTablefinal[$parameterFile]
+                $remoteShaForParameterFile = $remoteShaTable[$parameterFile]
+                $skip = (($existingShaForParameterFile) -and ($existingShaForParameterFile -eq $remoteShaForParameterFile))
+            }
+        }
+        if (!$skip) {
+            $deploymentName = GenerateDeploymentName
+            $isSuccess = AttemptDeployment $path $parameterFile $deploymentName $templateObject $templateType
+        }
+        return @{
+            skip = $skip
+            isSuccess = $isSuccess
+            reason = if ($skip) { "SHA comparison indicates no changes" } else { "Deployment attempted" }
+        }
+    }
+    catch {
+        Write-Host "[Error] An error occurred while trying to deploy file $path. Exception details: $_"
+        Write-Host $_.ScriptStackTrace
     }
 }
 
@@ -835,7 +890,7 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
             
             # Log the deployment result and reason
             if ($result.reason) {
-                Write-Host "[Info] Deployment result for $path`: $($result.reason)"
+                Write-Host "[Info] Deployment result for $($path): $($result.reason)"
             }
             
             if ($result.isSuccess -eq $false) {
@@ -868,15 +923,6 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
     try {
         $skip = $false
         $isSuccess = $null
-        
-        # Check if rule already exists in Sentinel (for logging purposes only)
-        $ruleExists = CheckRuleExistsInSentinel $templateObject
-        if ($ruleExists) {
-            Write-Host "[Info] Rule already exists in Sentinel - will update it with new changes from $path"
-        } else {
-            Write-Host "[Info] Rule does not exist in Sentinel - will create new rule from $path"
-        }
-        
         if (!$fullDeploymentFlag) {
             $existingSha = $global:localCsvTablefinal[$path]
             $remoteSha = $remoteShaTable[$path]
@@ -894,7 +940,6 @@ function SmartDeployment($fullDeploymentFlag, $remoteShaTable, $path, $parameter
         return @{
             skip = $skip
             isSuccess = $isSuccess
-            reason = if ($skip) { "SHA comparison indicates no changes" } else { "Deployment attempted" }
         }
     }
     catch {
