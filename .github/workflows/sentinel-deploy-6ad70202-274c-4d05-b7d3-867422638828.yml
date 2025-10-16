@@ -9,13 +9,13 @@ name: Deploy Content to master-wizardcyber [6ad70202-274c-4d05-b7d3-867422638828
 #   2. Append the path to the directory environment variable below
 #       directory: '${{ github.workspace }}/SentinelContent'
 
-on:
-  push:
-    branches: [ main ]
-    paths:
-    - '**'
-    - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
-    - '.github/workflows/sentinel-deploy-6ad70202-274c-4d05-b7d3-867422638828.yml'
+# on:
+#   push:
+#     branches: [ main ]
+#     paths:
+#     - '**'
+#     - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
+#     - '.github/workflows/sentinel-deploy-6ad70202-274c-4d05-b7d3-867422638828.yml'
 
 jobs:
   deploy-content:
@@ -91,4 +91,5 @@ jobs:
       with:
         azPSVersion: 'latest'
         inlineScript: |
+
           ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-6ad70202-274c-4d05-b7d3-867422638828.ps1
