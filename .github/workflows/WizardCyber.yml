@@ -9,16 +9,16 @@ name: Deploy Content to master-wizardcyber [6ad70202-274c-4d05-b7d3-867422638828
 #   2. Append the path to the directory environment variable below
 #       directory: '${{ github.workspace }}/SentinelContent'
 
-# on:
-#   push:
-#     branches: [ main ]
-#     paths:
-#     - '**'
-#     - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
-#     - '.github/workflows/sentinel-deploy-6ad70202-274c-4d05-b7d3-867422638828.yml'
+on:
+  push:
+    branches: [ main ]
+    paths:
+    - 'BaseRuleSet/**'
+    - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
+    - 'WizardCyber/**'
 
 jobs:
-  deploy-content:
+  BaseRulesDeployment:
     runs-on: windows-latest
     env:
       resourceGroupName: 'wizardcybersoc'
@@ -29,7 +29,7 @@ jobs:
       contentTypes: 'AnalyticsRule'
       branch: 'main'
       sourceControlId: '6ad70202-274c-4d05-b7d3-867422638828'
-      rootDirectory: '${{ github.workspace }}'
+      rootDirectory: '${{ github.workspace }}/BaseRuleSet'
       githubAuthToken: ${{ secrets.GITHUB_TOKEN }}
       smartDeployment: 'true'
     permissions:
@@ -85,13 +85,148 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 2 # Fetch current and previous commit to detect changes
 
+    - name: Get changed files
+      id: changed-files
+      shell: pwsh
+      run: |
+        # Get list of changed JSON files in BaseRuleSet/ directory
+        $changedFiles = git diff --name-only HEAD~1 HEAD -- 'BaseRuleSet/*.json'
+        $changedFilesString = $changedFiles -join ','
+        echo "changed_files=$changedFilesString" >> $env:GITHUB_OUTPUT
+        echo "Changed files: $changedFilesString"
+        
+        # Get list of deleted JSON files in BaseRuleSet/ directory
+        $deletedFiles = git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'BaseRuleSet/*.json'
+        $deletedFilesString = $deletedFiles -join ','
+        echo "deleted_files=$deletedFilesString" >> $env:GITHUB_OUTPUT
+        echo "Deleted files: $deletedFilesString"
+        
+        # If no specific rule files changed or deleted, we don't need to deploy anything
+        if ([string]::IsNullOrWhiteSpace($changedFilesString) -and [string]::IsNullOrWhiteSpace($deletedFilesString)) {
+          echo "No JSON rule files changed or deleted, skipping deployment"
+          echo "skip_deployment=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "skip_deployment=false" >> $env:GITHUB_OUTPUT
+        }
+      
     - name: Deploy Content to Microsoft Sentinel
+      if: steps.changed-files.outputs.skip_deployment == 'false'
       uses: azure/powershell@v2
       with:
         azPSVersion: 'latest'
         inlineScript: |
+          # Set changed files as environment variable for the PowerShell script
+          $env:CHANGED_FILES = "${{ steps.changed-files.outputs.changed_files }}"
+          $env:DELETED_FILES = "${{ steps.changed-files.outputs.deleted_files }}"
 
-          ${{ github.workspace }}//.github/workflows/azure-sentinel-deploy-6ad70202-274c-4d05-b7d3-867422638828.ps1
+          ${{ github.workspace }}//.github/workflows/WizardCyber.ps1
 
+  CustomerRulesDeployment:
+    runs-on: windows-latest
+    env:
+      resourceGroupName: 'wizardcybersoc'
+      workspaceName: 'master-wizardcyber'
+      workspaceId: 'bf1b9055-37cb-465d-81e8-436aa781bd3a'
+      directory: '${{ github.workspace }}'
+      cloudEnv: 'AzureCloud'
+      contentTypes: 'AnalyticsRule'
+      branch: 'main'
+      sourceControlId: '6ad70202-274c-4d05-b7d3-867422638828'
+      rootDirectory: '${{ github.workspace }}/WizardCyber'
+      githubAuthToken: ${{ secrets.GITHUB_TOKEN }}
+      smartDeployment: 'true'
+    permissions:
+      contents: write
+      id-token: write # Require write permission to Fetch an OIDC token.
+
+    steps:
+    - name: Login to Azure (Attempt 1)
+      continue-on-error: true
+      id: login1
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_SENTINEL_CLIENTID_6ad70202274c4d05b7d3867422638828 }}
+        tenant-id: ${{ secrets.AZURE_SENTINEL_TENANTID_6ad70202274c4d05b7d3867422638828 }}
+        subscription-id: ${{ secrets.AZURE_SENTINEL_SUBSCRIPTIONID_6ad70202274c4d05b7d3867422638828 }}
+        environment: 'AzureCloud'
+        audience: api://AzureADTokenExchange
+        enable-AzPSSession: true
+
+    - name: Wait 30 seconds if login attempt 1 failed
+      if: ${{ steps.login1.outcome=='failure' }}
+      run: powershell Start-Sleep -s 30
+
+    - name: Login to Azure (Attempt 2)
+      continue-on-error: true
+      id: login2
+      uses: azure/login@v2
+      if: ${{ steps.login1.outcome=='failure' }}
+      with:
+        client-id: ${{ secrets.AZURE_SENTINEL_CLIENTID_6ad70202274c4d05b7d3867422638828 }}
+        tenant-id: ${{ secrets.AZURE_SENTINEL_TENANTID_6ad70202274c4d05b7d3867422638828 }}
+        subscription-id: ${{ secrets.AZURE_SENTINEL_SUBSCRIPTIONID_6ad70202274c4d05b7d3867422638828 }}
+        environment: 'AzureCloud'
+        audience: api://AzureADTokenExchange
+        enable-AzPSSession: true
+
+    - name: Wait 30 seconds if login attempt 2 failed
+      if: ${{ steps.login2.outcome=='failure' }}
+      run: powershell Start-Sleep -s 30
+
+    - name: Login to Azure (Attempt 3)
+      continue-on-error: false
+      id: login3
+      uses: azure/login@v2
+      if: ${{ steps.login2.outcome=='failure'  }}
+      with:
+        client-id: ${{ secrets.AZURE_SENTINEL_CLIENTID_6ad70202274c4d05b7d3867422638828 }}
+        tenant-id: ${{ secrets.AZURE_SENTINEL_TENANTID_6ad70202274c4d05b7d3867422638828 }}
+        subscription-id: ${{ secrets.AZURE_SENTINEL_SUBSCRIPTIONID_6ad70202274c4d05b7d3867422638828 }}
+        environment: 'AzureCloud'
+        audience: api://AzureADTokenExchange
+        enable-AzPSSession: true
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2 # Fetch current and previous commit to detect changes
+
+    - name: Get changed files
+      id: changed-files
+      shell: pwsh
+      run: |
+        # Get list of changed JSON files in WizardCyber/ directory
+        $changedFiles = git diff --name-only HEAD~1 HEAD -- 'WizardCyber/*.json'
+        $changedFilesString = $changedFiles -join ','
+        echo "changed_files=$changedFilesString" >> $env:GITHUB_OUTPUT
+        echo "Changed files: $changedFilesString"
+        
+        # Get list of deleted JSON files in WizardCyber/ directory
+        $deletedFiles = git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'WizardCyber/*.json'
+        $deletedFilesString = $deletedFiles -join ','
+        echo "deleted_files=$deletedFilesString" >> $env:GITHUB_OUTPUT
+        echo "Deleted files: $deletedFilesString"
+        
+        # If no specific rule files changed or deleted, we don't need to deploy anything
+        if ([string]::IsNullOrWhiteSpace($changedFilesString) -and [string]::IsNullOrWhiteSpace($deletedFilesString)) {
+          echo "No JSON rule files changed or deleted, skipping deployment"
+          echo "skip_deployment=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "skip_deployment=false" >> $env:GITHUB_OUTPUT
+        }
+      
+    - name: Deploy Content to Microsoft Sentinel
+      if: steps.changed-files.outputs.skip_deployment == 'false'
+      uses: azure/powershell@v2
+      with:
+        azPSVersion: 'latest'
+        inlineScript: |
+          # Set changed files as environment variable for the PowerShell script
+          $env:CHANGED_FILES = "${{ steps.changed-files.outputs.changed_files }}"
+          $env:DELETED_FILES = "${{ steps.changed-files.outputs.deleted_files }}"
+
+          ${{ github.workspace }}//.github/workflows/WizardCyber.ps1
 
