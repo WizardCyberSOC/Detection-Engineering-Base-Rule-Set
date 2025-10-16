@@ -1,0 +1,89 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/480f3da7-f0fa-407f-8f25-0e123648bd49')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/480f3da7-f0fa-407f-8f25-0e123648bd49')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Vectra - Suspicious Activity Detected - [WC-BASE]",
+                                             "description":  "This rule is used to pull alerts from Vectra. Category will be shown in the tickets' name.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let WizardUsers = _GetWatchlist(\"WizardUsers\")\r\n    | project UPN = SearchKey;\r\nlet ManagedAttempts = SigninLogs\r\n| union AADNonInteractiveUserSignInLogs\r\n| where TimeGenerated \u003e ago(14d)\r\n| where isnotempty( DeviceDetail_dynamic.deviceId) or isnotempty( tostring(parse_json(DeviceDetail_string).deviceId))\r\n| summarize ManagedAttemptsCount = count() by IPAddress;\r\nVectraDetections\r\n| where TimeGenerated \u003e ago(1h)\r\n| where ['Detection Category'] !in (\"exfiltration\", \"command_and_control\", \"lateral_movement\")\r\n| extend\r\n    DataColumnSize = strlen(Details),\r\n    DetectionDetailsColumnSize = strlen(['Detection Details'])\r\n| extend Details = iff(DataColumnSize \u003e 10000, \"Log size too large, please run the query \\\"VectraDetections\\\" manually to get the logs\", Details)\r\n| extend ['Detection Details'] = iff(DetectionDetailsColumnSize \u003e 10000, \"Log size too large, please run the query \\\"VectraDetections\\\" manually to get the logs\", ['Detection Details'])\r\n| project-away DataColumnSize, DetectionDetailsColumnSize\r\n| extend IPAddress = tostring(parse_json(['Detection Details'])[0].approx_ip)\r\n| join kind=leftouter ManagedAttempts on IPAddress\r\n| extend ManagedAttemptsCount = coalesce(ManagedAttemptsCount,0)\r\n| where not( ['Detection Name'] in (\"M365 Suspicious Compliance Search\",\"M365 Unusual eDiscovery Search\") and ['Entity UID'] has_any (WizardUsers) )\r\n| where not( ['Detection Name'] == \"Suspicious Copilot for M365 Access\" and ManagedAttemptsCount \u003e 0 )\r\n",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Reconnaissance",
+                                                             "ResourceDevelopment",
+                                                             "InitialAccess",
+                                                             "Execution",
+                                                             "Persistence",
+                                                             "PrivilegeEscalation",
+                                                             "DefenseEvasion",
+                                                             "CredentialAccess",
+                                                             "Discovery",
+                                                             "Collection",
+                                                             "Impact",
+                                                             "Evasion",
+                                                             "InhibitResponseFunction",
+                                                             "ImpairProcessControl"
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "AlertPerResult"
+                                                                       },
+                                             "alertDetailsOverride":  {
+                                                                          "alertDisplayNameFormat":  "[Vectra] Suspicious Activity Detected. Category: {{Detection Category}} ",
+                                                                          "alertDescriptionFormat":  "An alert has triggered in Vectra with the Category \"{{Detection Category}}\" and the detection name \"{{Detection Name}}\".",
+                                                                          "alertDynamicProperties":  [
+
+                                                                                                     ]
+                                                                      },
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
