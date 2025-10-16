@@ -1,0 +1,107 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/a56c3d4b-95ba-41fa-baf9-3cee1e7c8aa3')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/a56c3d4b-95ba-41fa-baf9-3cee1e7c8aa3')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Application Redirect URL Update - [WC-BASE]",
+                                             "description":  "Detects the redirect URL of an app being changed.\n  Applications associated with URLs not controlled by the organization can pose a security risk.\n  Ref: https://docs.microsoft.com/azure/active-directory/fundamentals/security-operations-applications#application-configuration-changes",
+                                             "severity":  "Low",
+                                             "enabled":  true,
+                                             "query":  "AuditLogs\n  | where Category =~ \"ApplicationManagement\"\n  | where Result =~ \"success\"\n  | where OperationName =~ 'Update Application'\n  | mv-expand TargetResources\n  | mv-expand TargetResources.modifiedProperties\n  | where TargetResources_modifiedProperties.displayName =~ \"AppAddress\"\n  | extend Key = tostring(TargetResources_modifiedProperties.displayName)\n  | extend NewValue = TargetResources_modifiedProperties.newValue\n  | extend OldValue = TargetResources_modifiedProperties.oldValue\n  | where isnotempty(Key) and isnotempty(NewValue)\n  | project-reorder Key, NewValue, OldValue\n  | extend NewUrls = extract_all('\"Address\":([^,]*)', tostring(NewValue))\n  | extend OldUrls = extract_all('\"Address\":([^,]*)', tostring(OldValue))\n  | extend AddedUrls = set_difference(NewUrls, OldUrls)\n  | where array_length(AddedUrls) \u003e 0\n  | extend UserAgent = iif(tostring(AdditionalDetails[0].key) == \"User-Agent\", tostring(AdditionalDetails[0].value), \"\")\n  | extend AddingUser = iif(isnotempty(tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)) , tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName), \"\")\n  | extend AddingApp = iif(isnotempty(tostring(parse_json(tostring(InitiatedBy.app)).servicePrincipalName)) , tostring(parse_json(tostring(InitiatedBy.app)).servicePrincipalName), \"\")\n  | extend AddedBy = iif(isnotempty(AddingUser), AddingUser, AddingApp)\n  | project-away AddingApp, AddingUser\n  | extend AppDisplayName = tostring(TargetResources.displayName)\n  | extend ipAddress = tostring(parse_json(tostring(InitiatedBy.user)).ipAddress)\n  | project-reorder TimeGenerated, AppDisplayName, AddedUrls, AddedBy, UserAgent, ipAddress",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  "a1080fc1-13d1-479b-8340-255f0290d96c",
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5M",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AddedBy"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "IP",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Address",
+                                                                                                  "columnName":  "ipAddress"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "URL",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Url",
+                                                                                                  "columnName":  "AddedUrls"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "CloudApplication",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "AppDisplayName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

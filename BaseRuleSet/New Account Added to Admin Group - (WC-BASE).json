@@ -1,0 +1,81 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d67bed77-5c24-4535-9e68-f7826230f1d8')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d67bed77-5c24-4535-9e68-f7826230f1d8')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "New Account Added to Admin Group - [WC-BASE]",
+                                             "description":  "Account created in the last 7 days that is added to administrators group.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let adminGroup = dynamic(['Administrators', 'Admin', 'Admins', 'Administrator']);\r\nlet GetRiskyUsers = \r\nAADUserRiskEvents\r\n| where TimeGenerated \u003e ago(14d)\r\n| project UserPrincipalName = tolower(UserPrincipalName);\r\nlet GetInitiator = \r\nAuditLogs\r\n| where TimeGenerated \u003e ago(14d)\r\n| where OperationName == \"Add user\"\r\n| extend Initiator =  parse_json(tostring(InitiatedBy.user)).userPrincipalName\r\n| extend Target = TargetResources[0].userPrincipalName\r\n| project UserAdder = tolower(Initiator), Target = tolower(Target);\r\nIdentityInfo\r\n| where TimeGenerated \u003e ago(1h)\r\n| where AccountCreationTime \u003e= ago(7d)\r\n| mv-expand GroupMembership\r\n| where GroupMembership has_any    (adminGroup)\r\n| extend Account_0_AadUserId = AccountObjectId\r\n| summarize arg_min(TimeGenerated,*) by AccountUPN\r\n| extend AccountUPN = tolower(AccountUPN)\r\n| join kind=inner GetInitiator on $left.AccountUPN == $right.Target\r\n| project-away Target\r\n| join kind=inner GetRiskyUsers on $left.UserAdder == $right.UserPrincipalName",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "P14D",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "ResourceDevelopment",
+                                                             "PrivilegeEscalation"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1585",
+                                                                "T1548",
+                                                                "T1626"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountUPN"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

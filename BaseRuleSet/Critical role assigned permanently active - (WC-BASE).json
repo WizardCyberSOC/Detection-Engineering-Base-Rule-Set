@@ -1,0 +1,79 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/944fa879-cba4-418e-babc-15a89bb257b4')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/944fa879-cba4-418e-babc-15a89bb257b4')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Critical role assigned permanently active - [WC-BASE]",
+                                             "description":  "A critical role was assigned permanently active to an identity.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "let auditLookback = 1h;\nAuditLogs\n| where TimeGenerated \u003e ago(auditLookback)\n| where LoggedByService == \"PIM\"\n| where Result == \"success\"\n| where AADOperationType == \"AssignPermanentGrantedRole\"\n| project\n    TimeGenerated, \n    ['Initiated By'] = (tostring(parse_json(tostring(InitiatedBy.user)).displayName)), \n    ['Operation Type'] = AADOperationType, \n    Description = ResultDescription, \n    Role = (tostring(TargetResources[0].displayName)), \n    AffectedUser = (tostring(TargetResources[2].displayName)), \n    Scope = (tostring(TargetResources[3].displayName)), \n    ['Resource Type'] = (tostring(TargetResources[4].displayName)),\n    ['Assignment will expire by'] = replace(@'(1\\/1\\/0001).*', @'', tostring(AdditionalDetails[3].value)),\n    CorrelationId\n| where Role == \"Global Administrator\" or Role == \"Sharepoint Administrator\" or Role == \"Teams Administrator\" or Role == \"Exchange Administrator\" or Role == \"Intune Administrator\" or Role == \"Skype for Business Administrator\" or Role == \"Search Administrator\" or Role == \"Authentication Administrator\" or Role == \"Privileged Authentication Administrator\" or Role == \"Privileged Role Administrator\" or Role == \"Groups Administrator\" or Role == \"Contributor\" or Role == \"User Access Administrator\"\n| order by CorrelationId, TimeGenerated\n| project-away CorrelationId\n| extend AccountCustomEntity = AffectedUser",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Persistence"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1098",
+                                                                "T1078"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT6H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  null,
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  {
+                                                                   "Role":  "Role"
+                                                               },
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "AccountCustomEntity"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

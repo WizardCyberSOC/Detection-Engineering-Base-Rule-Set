@@ -1,0 +1,96 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/3682a24f-18d7-4fd0-b829-61c240c2ee2c')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/3682a24f-18d7-4fd0-b829-61c240c2ee2c')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Avos Locker (via registry_event) - [WC-BASE]",
+                                             "description":  "Avos Locker is one among the many such cartels that have not only witnessed a surge in attacks but have also adopted new tactics to pursue their financially motivated schemes, chief among them being the ability to disable endpoint security products on the targeted systems and boot them into Windows Safe Mode to execute the ransomware. Also installed is the AnyDesk remote administration tool to maintain access to the machine while running in Safe Mode.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceRegistryEvents | where ((RegistryKey contains @\"\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\\\\") and (RegistryKey contains \"DisableAntiSpyware\" or RegistryKey contains @\"\\Network\\SepMasterService\" or RegistryKey contains @\"\\Network\\CbDefense\" or RegistryKey contains @\"\\Network\\CbDefenseWSC\" or RegistryKey contains @\"\\Network\\EPProtectedService\" or RegistryKey contains @\"\\Network\\epredline\" or RegistryKey contains @\"\\Network\\CylanceSvc\" or RegistryKey contains @\"\\Network\\SAVService\" or RegistryKey contains @\"\\Network\\klnagent\" or RegistryKey contains @\"\\Network\\Sophos File Scanner Service\" or RegistryKey contains @\"\\Network\\SntpService\" or RegistryKey contains @\"\\Network\\EPSecurityService\" or RegistryKey contains @\"\\Network\\EPUpdateService\" or RegistryKey contains @\"\\Network\\EPIntegrationService\" or RegistryKey contains @\"\\Network\\TmCCSF\" or RegistryKey contains @\"\\Network\\TmWSCSvc\" or RegistryKey contains @\"\\Network\\AnyDeskMSI\" or RegistryKey contains \"DefaultDomainName\" or RegistryKey contains \"DefaultUserName\" or RegistryKey contains \"DefaultPassword\" or RegistryKey contains \"AutoAdminLogon\" or RegistryKey contains \"LegalNoticeCaption\" or RegistryKey contains \"LegalNoticeText\" or RegistryKey contains \"LegalNoticeCaption\"))\n",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "CommandAndControl"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1572"
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  true,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Account",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "FullName",
+                                                                                                  "columnName":  "InitiatingProcessAccountUpn"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "RegistryKey",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Key",
+                                                                                                  "columnName":  "RegistryKey"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
