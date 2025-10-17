@@ -1,0 +1,68 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/90f5ba9d-41c1-4693-87b9-3ed5d4fb0e52')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/90f5ba9d-41c1-4693-87b9-3ed5d4fb0e52')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Vectra - Alert Detected Category: Exfiltration - [WC-BASE]",
+                                             "description":  "An alert has been generated in Vectra.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "VectraDetections\r\n| where ['Detection Category'] == \"exfiltration\"\r\n| extend DataColumnSize = strlen(Details), DetectionDetailsColumnSize = strlen(['Detection Details'])\r\n| extend Details = iff(DataColumnSize \u003e 10000, \"Log size too large, please run the query \\\"VectraDetections\\\" manually to get the logs\",Details)\r\n| extend ['Detection Details'] = iff(DetectionDetailsColumnSize \u003e 10000, \"Log size too large, please run the query \\\"VectraDetections\\\" manually to get the logs\",['Detection Details'])\r\n| project-away DataColumnSize,DetectionDetailsColumnSize",
+                                             "queryFrequency":  "PT1H",
+                                             "queryPeriod":  "PT1H",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+                                                             "Exfiltration"
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

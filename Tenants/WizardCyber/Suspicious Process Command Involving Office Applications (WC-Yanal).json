@@ -1,0 +1,68 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/b084b6e6-d7d6-409f-b4d3-533563f3cd06')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/b084b6e6-d7d6-409f-b4d3-533563f3cd06')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Suspicious Process Command Involving Office Applications [WC-Yanal]",
+                                             "description":  "Triggers upon running an Office application alongside a suspicious commandline",
+                                             "severity":  "Medium",
+                                             "enabled":  false,
+                                             "query":  "let suspiciousKeywords = dynamic([\"\u003c%=\", \"{{\", \"${\", \"\u003c\u003c\" , \"||\", \"\u0026\u0026\", \"\u003c%=\", \"\u003c%@\", \"${\", \"#{\", \"$(\", \"\u003c?\", \"\u003c?php\", \"certutil\", \"bitsadmin\", \"regsvr32\", \"mshta\", \"wscript\", \"cscript\"]); //, \"#{\" , \"$(\"\r\nlet FileNames = dynamic([\"powershell\", \"winword.exe\", \"excel.exe\", \"powerpnt.exe\", \"outlook.exe\", \"onenote.exe\", \"word.exe\"]);\r\nDeviceEvents\r\n| where InitiatingProcessCommandLine has_any (FileNames)\r\n| where AdditionalFields has_any (suspiciousKeywords)\r\n| where isnotempty(InitiatingProcessCommandLine)\r\n| where InitiatingProcessFileName \u003c\u003e \"cybercnsagent.exe\"\r\n| where InitiatingProcessParentFileName \u003c\u003e \"cybercnsagent.exe\"\r\n| where InitiatingProcessCommandLine !contains \"Windows Defender Advanced Threat Protection\"",
+                                             "queryFrequency":  "PT15M",
+                                             "queryPeriod":  "PT15M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  null,
+                                             "tactics":  [
+
+                                                         ],
+                                             "techniques":  [
+
+                                                            ],
+                                             "subTechniques":  [
+
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "AlertPerResult"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  null,
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

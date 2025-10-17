@@ -1,0 +1,87 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/87acc561-e4fb-4ee2-898d-a34318fd8d8a')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/87acc561-e4fb-4ee2-898d-a34318fd8d8a')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Detection of PowerShell PowerUp Toolkit Execution",
+                                             "description":  "This detection identifies the execution of PowerUp, a popular PowerShell post-exploitation tool used for privilege escalation. Specifically, it monitors for the Invoke-AllChecks function, which scans Windows machines for misconfigurations that can be exploited to elevate privileges.",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceProcessEvents\r\n| where ProcessCommandLine contains \"Invoke-AllChecks\" or ProcessCommandLine contains \"PowerUp\" or ProcessCommandLine contains \"Get-ServiceUnquoted\" or ProcessCommandLine contains \"Get-UnattendedInstallFile\"\r\n| extend DetectedFunction = extract(@\"(Invoke-AllChecks|Get-ServiceUnquoted|Get-UnattendedInstallFile|Get-RegistryAlwaysInstallElevated)\", 1, ProcessCommandLine)\r\n| project\r\n    TimeGenerated,\r\n    DeviceName,\r\n    ProcessCommandLine,\r\n    DetectedFunction,\r\n    InitiatingProcessFileName,\r\n    InitiatingProcessCommandLine,\r\n    InitiatingProcessParentFileName,\r\n    AccountDomain,\r\n    ProcessId,\r\n    FolderPath,\r\n    SHA256,\r\n    MD5\r\n| order by TimeGenerated desc",
+                                             "queryFrequency":  "PT5M",
+                                             "queryPeriod":  "PT5M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  "2025-03-02T13:00:00.000Z",
+                                             "tactics":  [
+                                                             "Execution"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1059"
+                                                            ],
+                                             "subTechniques":  [
+                                                                   "T1059.001"
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Process",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "CommandLine",
+                                                                                                  "columnName":  "ProcessCommandLine"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}

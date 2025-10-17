@@ -1,0 +1,105 @@
+﻿{
+    "contentVersion":  "1.0.0.0",
+    "$schema":  "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "resources":  [
+                      {
+                          "id":  "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/48688a95-a5b6-4525-942f-fa15ca1ea27a')]",
+                          "name":  "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/48688a95-a5b6-4525-942f-fa15ca1ea27a')]",
+                          "type":  "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+                          "kind":  "Scheduled",
+                          "apiVersion":  "2023-12-01-preview",
+                          "properties":  {
+                                             "displayName":  "Detection of LSA Protection Disabling via Registry Modification",
+                                             "description":  "This detection monitors attempts to disable LSA Protection (RunAsPPL) by modifying the Windows registry key \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\LSA\"\nLSA Protection is a security feature that prevents unauthorized access to credential storage, such as LSASS memory dumps, used by tools like Mimikatz for credential extraction.\nThis detection captures processes attempting to modify LSA settings, including reg.exe, cmd.exe, powershell.exe",
+                                             "severity":  "Medium",
+                                             "enabled":  true,
+                                             "query":  "DeviceProcessEvents\r\n| where ProcessCommandLine has @\"HKLM\\SYSTEM\\CurrentControlSet\\Control\\LSA\"\r\n| extend RegistryKey = extract(@\"(HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\LSA)\", 1, ProcessCommandLine)\r\n| project\r\n    TimeGenerated,\r\n    FileName,\r\n    ProcessCommandLine,\r\n    RegistryKey,\r\n    InitiatingProcessFileName,\r\n    InitiatingProcessCommandLine,\r\n    InitiatingProcessParentFileName,\r\n    AccountUpn,\r\n    AccountDomain,\r\n    DeviceName,\r\n    ProcessId,\r\n    FolderPath,\r\n    SHA256,\r\n    MD5\r\n| project-reorder TimeGenerated, FileName, ProcessCommandLine, RegistryKey, InitiatingProcessFileName, InitiatingProcessCommandLine, InitiatingProcessParentFileName\r\n| order by TimeGenerated desc",
+                                             "queryFrequency":  "PT5M",
+                                             "queryPeriod":  "PT5M",
+                                             "triggerOperator":  "GreaterThan",
+                                             "triggerThreshold":  0,
+                                             "suppressionDuration":  "PT5H",
+                                             "suppressionEnabled":  false,
+                                             "startTimeUtc":  "2025-03-02T01:00:00.000Z",
+                                             "tactics":  [
+                                                             "DefenseEvasion"
+                                                         ],
+                                             "techniques":  [
+                                                                "T1562"
+                                                            ],
+                                             "subTechniques":  [
+                                                                   "T1562.001"
+                                                               ],
+                                             "alertRuleTemplateName":  null,
+                                             "incidentConfiguration":  {
+                                                                           "createIncident":  true,
+                                                                           "groupingConfiguration":  {
+                                                                                                         "enabled":  false,
+                                                                                                         "reopenClosedIncident":  false,
+                                                                                                         "lookbackDuration":  "PT5H",
+                                                                                                         "matchingMethod":  "AllEntities",
+                                                                                                         "groupByEntities":  [
+
+                                                                                                                             ],
+                                                                                                         "groupByAlertDetails":  [
+
+                                                                                                                                 ],
+                                                                                                         "groupByCustomDetails":  [
+
+                                                                                                                                  ]
+                                                                                                     }
+                                                                       },
+                                             "eventGroupingSettings":  {
+                                                                           "aggregationKind":  "SingleAlert"
+                                                                       },
+                                             "alertDetailsOverride":  null,
+                                             "customDetails":  null,
+                                             "entityMappings":  [
+                                                                    {
+                                                                        "entityType":  "File",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Name",
+                                                                                                  "columnName":  "InitiatingProcessFileName"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "RegistryKey",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "Key",
+                                                                                                  "columnName":  "RegistryKey"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Process",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "CommandLine",
+                                                                                                  "columnName":  "ProcessCommandLine"
+                                                                                              }
+                                                                                          ]
+                                                                    },
+                                                                    {
+                                                                        "entityType":  "Host",
+                                                                        "fieldMappings":  [
+                                                                                              {
+                                                                                                  "identifier":  "HostName",
+                                                                                                  "columnName":  "DeviceName"
+                                                                                              }
+                                                                                          ]
+                                                                    }
+                                                                ],
+                                             "sentinelEntitiesMappings":  null,
+                                             "templateVersion":  null
+                                         }
+                      }
+                  ],
+    "parameters":  {
+                       "workspace":  {
+                                         "type":  "String"
+                                     }
+                   }
+}
