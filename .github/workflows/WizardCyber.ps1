@@ -877,7 +877,7 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
                     # Handle path prefixes correctly - remove directory prefix if present since rootDirectory already points to the target directory
                     $fileName = $relativePath
                     if ($relativePath.StartsWith("Tenants/WizardCyber/")) {
-                        $fileName = $relativePath.Substring(Tenants/"WizardCyber/".Length)
+                        $fileName = $relativePath.Substring("Tenants/WizardCyber/".Length)
                     } elseif ($relativePath.StartsWith("BaseRuleSet/")) {
                         $fileName = $relativePath.Substring("BaseRuleSet/".Length)
                     }
@@ -1068,5 +1068,6 @@ function main() {
 }
 
 main
+
 
 
