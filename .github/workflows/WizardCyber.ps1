@@ -790,8 +790,8 @@ function ProcessDeletedFiles() {
                     
                     # Remove from tracking table if it exists - handle path prefixes correctly
                     $fileName = $relativePath
-                    if ($relativePath.StartsWith("WizardCyber/")) {
-                        $fileName = $relativePath.Substring("WizardCyber/".Length)
+                    if ($relativePath.StartsWith("Tenants/WizardCyber/")) {
+                        $fileName = $relativePath.Substring("Tenants/WizardCyber/".Length)
                     } elseif ($relativePath.StartsWith("BaseRuleSet/")) {
                         $fileName = $relativePath.Substring("BaseRuleSet/".Length)
                     }
@@ -876,8 +876,8 @@ function Deployment($fullDeploymentFlag, $remoteShaTable, $tree) {
                 if (-not [string]::IsNullOrEmpty($relativePath)) {
                     # Handle path prefixes correctly - remove directory prefix if present since rootDirectory already points to the target directory
                     $fileName = $relativePath
-                    if ($relativePath.StartsWith("WizardCyber/")) {
-                        $fileName = $relativePath.Substring("WizardCyber/".Length)
+                    if ($relativePath.StartsWith("Tenants/WizardCyber/")) {
+                        $fileName = $relativePath.Substring(Tenants/"WizardCyber/".Length)
                     } elseif ($relativePath.StartsWith("BaseRuleSet/")) {
                         $fileName = $relativePath.Substring("BaseRuleSet/".Length)
                     }
@@ -1068,4 +1068,5 @@ function main() {
 }
 
 main
+
 
