@@ -14,7 +14,7 @@ on:
     branches: [ main ]
     paths:
     - 'BaseRuleSet/**'
-    - 'WizardCyber/**'
+    - 'Tenants/WizardCyber/**'
     - '!.github/workflows/**'  # this filter prevents other workflow changes from triggering this workflow
 
 jobs:
@@ -143,7 +143,7 @@ jobs:
       contentTypes: 'AnalyticsRule'
       branch: 'main'
       sourceControlId: '6ad70202-274c-4d05-b7d3-867422638828'
-      rootDirectory: '${{ github.workspace }}/WizardCyber'
+      rootDirectory: '${{ github.workspace }}/Tenants/WizardCyber'
       githubAuthToken: ${{ secrets.GITHUB_TOKEN }}
       smartDeployment: 'true'
     permissions:
@@ -207,19 +207,19 @@ jobs:
       shell: pwsh
       run: |
         # Get list of changed JSON files in WizardCyber/ directory
-        $changedFiles = git diff --name-only HEAD~1 HEAD -- 'WizardCyber/*.json'
+        $changedFiles = git diff --name-only HEAD~1 HEAD -- 'Tenants/WizardCyber/*.json'
         $changedFilesString = $changedFiles -join ','
         echo "changed_files=$changedFilesString" >> $env:GITHUB_OUTPUT
         echo "Changed files: $changedFilesString"
         
         # Get list of deleted JSON files in WizardCyber/ directory
-        $deletedFiles = git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'WizardCyber/*.json'
+        $deletedFiles = git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'Tenants/WizardCyber/*.json'
         $deletedFilesString = $deletedFiles -join ','
         echo "deleted_files=$deletedFilesString" >> $env:GITHUB_OUTPUT
         echo "Deleted files: $deletedFilesString"
         
         # Check if WizardCyber files changed
-        $wizardCyberChanged = git diff --name-only HEAD~1 HEAD -- 'WizardCyber/**' | Where-Object { $_ -like '*.json' }
+        $wizardCyberChanged = git diff --name-only HEAD~1 HEAD -- 'Tenants/WizardCyber/**' | Where-Object { $_ -like '*.json' }
         if ($wizardCyberChanged) {
           echo "wizardcyber_changed=true" >> $env:GITHUB_OUTPUT
         } else {
@@ -245,6 +245,7 @@ jobs:
           $env:DELETED_FILES = "${{ steps.changed-files.outputs.deleted_files }}"
 
           ${{ github.workspace }}//.github/workflows/WizardCyber.ps1
+
 
 
 
